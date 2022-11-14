@@ -39,7 +39,7 @@ class ProposalTargetLayer(nn.Module):
         if self.roi_sampler_cfg.CLS_SCORE_TYPE == 'cls':
             batch_cls_labels = (batch_roi_ious > self.roi_sampler_cfg.CLS_FG_THRESH).long()
             ignore_mask = (batch_roi_ious > self.roi_sampler_cfg.CLS_BG_THRESH) & \
-                          (batch_roi_ious < self.roi_sampler_cfg.CLS_FG_THRESH)
+                              (batch_roi_ious < self.roi_sampler_cfg.CLS_FG_THRESH)
             batch_cls_labels[ignore_mask > 0] = -1
         elif self.roi_sampler_cfg.CLS_SCORE_TYPE == 'roi_iou':
             iou_bg_thresh = self.roi_sampler_cfg.CLS_BG_THRESH
@@ -50,16 +50,19 @@ class ProposalTargetLayer(nn.Module):
 
             batch_cls_labels = (fg_mask > 0).float()
             batch_cls_labels[interval_mask] = \
-                (batch_roi_ious[interval_mask] - iou_bg_thresh) / (iou_fg_thresh - iou_bg_thresh)
+                    (batch_roi_ious[interval_mask] - iou_bg_thresh) / (iou_fg_thresh - iou_bg_thresh)
         else:
             raise NotImplementedError
 
-        targets_dict = {'rois': batch_rois, 'gt_of_rois': batch_gt_of_rois, 'gt_iou_of_rois': batch_roi_ious,
-                        'roi_scores': batch_roi_scores, 'roi_labels': batch_roi_labels,
-                        'reg_valid_mask': reg_valid_mask,
-                        'rcnn_cls_labels': batch_cls_labels}
-
-        return targets_dict
+        return {
+            'rois': batch_rois,
+            'gt_of_rois': batch_gt_of_rois,
+            'gt_iou_of_rois': batch_roi_ious,
+            'roi_scores': batch_roi_scores,
+            'roi_labels': batch_roi_labels,
+            'reg_valid_mask': reg_valid_mask,
+            'rcnn_cls_labels': batch_cls_labels,
+        }
 
     def sample_rois_for_rcnn(self, batch_dict):
         """
@@ -88,7 +91,7 @@ class ProposalTargetLayer(nn.Module):
 
         for index in range(batch_size):
             cur_roi, cur_gt, cur_roi_labels, cur_roi_scores = \
-                rois[index], gt_boxes[index], roi_labels[index], roi_scores[index]
+                    rois[index], gt_boxes[index], roi_labels[index], roi_scores[index]
             k = cur_gt.__len__() - 1
             while k >= 0 and cur_gt[k].sum() == 0:
                 k -= 1
@@ -158,8 +161,7 @@ class ProposalTargetLayer(nn.Module):
             print('ERROR: FG=%d, BG=%d' % (fg_num_rois, bg_num_rois))
             raise NotImplementedError
 
-        sampled_inds = torch.cat((fg_inds, bg_inds), dim=0)
-        return sampled_inds
+        return torch.cat((fg_inds, bg_inds), dim=0)
 
     @staticmethod
     def sample_bg_inds(hard_bg_inds, easy_bg_inds, bg_rois_per_this_image, hard_bg_ratio):

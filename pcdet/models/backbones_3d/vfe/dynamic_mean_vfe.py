@@ -50,27 +50,30 @@ class DynamicMeanVFE(VFETemplate):
         points = batch_dict['points'] # (batch_idx, x, y, z, i, e)
 
         # # debug
-        point_coords = torch.floor((points[:, 1:4] - self.point_cloud_range[0:3]) / self.voxel_size).int()
+        point_coords = torch.floor(
+            (points[:, 1:4] - self.point_cloud_range[:3]) / self.voxel_size
+        ).int()
+
         mask = ((point_coords >= 0) & (point_coords < self.grid_size)).all(dim=1)
         points = points[mask]
         point_coords = point_coords[mask]
         merge_coords = points[:, 0].int() * self.scale_xyz + \
-                        point_coords[:, 0] * self.scale_yz + \
-                        point_coords[:, 1] * self.scale_z + \
-                        point_coords[:, 2]
+                            point_coords[:, 0] * self.scale_yz + \
+                            point_coords[:, 1] * self.scale_z + \
+                            point_coords[:, 2]
         points_data = points[:, 1:].contiguous()
-        
+
         unq_coords, unq_inv, unq_cnt = torch.unique(merge_coords, return_inverse=True, return_counts=True)
 
         points_mean = torch_scatter.scatter_mean(points_data, unq_inv, dim=0)
-        
+
         unq_coords = unq_coords.int()
         voxel_coords = torch.stack((unq_coords // self.scale_xyz,
                                     (unq_coords % self.scale_xyz) // self.scale_yz,
                                     (unq_coords % self.scale_yz) // self.scale_z,
                                     unq_coords % self.scale_z), dim=1)
         voxel_coords = voxel_coords[:, [0, 3, 2, 1]]
-        
+
         batch_dict['voxel_features'] = points_mean.contiguous()
         batch_dict['voxel_coords'] = voxel_coords.contiguous()
         return batch_dict

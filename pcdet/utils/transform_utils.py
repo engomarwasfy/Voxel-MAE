@@ -48,9 +48,7 @@ def normalize_coords(coords, shape):
     max_n = 1
     shape = torch.flip(shape, dims=[0])  # Reverse ordering of shape
 
-    # Subtract 1 since pixel indexing from [0, shape - 1]
-    norm_coords = coords / (shape - 1) * (max_n - min_n) + min_n
-    return norm_coords
+    return coords / (shape - 1) * (max_n - min_n) + min_n
 
 
 def bin_depths(depth_map, mode, depth_min, depth_max, num_bins, target=False):

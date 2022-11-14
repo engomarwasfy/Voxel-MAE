@@ -183,7 +183,7 @@ class PointResidualCoder(object):
             dyt = torch.log(dyg)
             dzt = torch.log(dzg)
 
-        cts = [g for g in cgs]
+        cts = list(cgs)
         return torch.cat([xt, yt, zt, dxt, dyt, dzt, torch.cos(rg), torch.sin(rg), *cts], dim=-1)
 
     def decode_torch(self, box_encodings, points, pred_classes=None):
@@ -218,5 +218,5 @@ class PointResidualCoder(object):
 
         rg = torch.atan2(sint, cost)
 
-        cgs = [t for t in cts]
+        cgs = list(cts)
         return torch.cat([xg, yg, zg, dxg, dyg, dzg, rg, *cgs], dim=-1)

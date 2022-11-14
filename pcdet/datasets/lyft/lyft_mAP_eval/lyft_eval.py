@@ -65,19 +65,19 @@ class Box3D:
         if not isinstance(sample_token, str):
             raise TypeError("Sample_token must be a string!")
 
-        if not len(translation) == 3:
+        if len(translation) != 3:
             raise ValueError("Translation must have 3 elements!")
 
         if np.any(np.isnan(translation)):
             raise ValueError("Translation may not be NaN!")
 
-        if not len(size) == 3:
+        if len(size) != 3:
             raise ValueError("Size must have 3 elements!")
 
         if np.any(np.isnan(size)):
             raise ValueError("Size may not be NaN!")
 
-        if not len(rotation) == 4:
+        if len(rotation) != 4:
             raise ValueError("Rotation must have 4 elements!")
 
         if np.any(np.isnan(rotation)):
@@ -190,9 +190,7 @@ class Box3D:
         intersection = self.get_intersection(other)
         union = self.volume + other.volume - intersection
 
-        iou = np.clip(intersection / union, 0, 1)
-
-        return iou
+        return np.clip(intersection / union, 0, 1)
 
     def __repr__(self):
         return str(self.serialize())
@@ -219,11 +217,7 @@ def group_by_key(detections, key):
 
 
 def wrap_in_box(input):
-    result = {}
-    for key, value in input.items():
-        result[key] = [Box3D(**x) for x in value]
-
-    return result
+    return {key: [Box3D(**x) for x in value] for key, value in input.items()}
 
 
 def get_envelope(precisions):
@@ -260,9 +254,7 @@ def get_ap(recalls, precisions):
     # to calculate area under PR curve, look for points where X axis (recall) changes value
     i = np.where(recalls[1:] != recalls[:-1])[0]
 
-    # and sum (\Delta recall) * prec
-    ap = np.sum((recalls[i + 1] - recalls[i]) * precisions[i + 1])
-    return ap
+    return np.sum((recalls[i + 1] - recalls[i]) * precisions[i + 1])
 
 
 def get_ious(gt_boxes, predicted_box):
@@ -302,7 +294,7 @@ def recall_precision(gt, predictions, iou_threshold_list):
             gt_boxes = []
             gt_checked = None
 
-        if len(gt_boxes) > 0:
+        if gt_boxes:
             overlaps = get_ious(gt_boxes, predicted_box)
 
             max_overlap = np.max(overlaps)
@@ -310,27 +302,23 @@ def recall_precision(gt, predictions, iou_threshold_list):
             jmax = np.argmax(overlaps)
 
         for i, iou_threshold in enumerate(iou_threshold_list):
-            if max_overlap > iou_threshold:
-                if gt_checked[jmax, i] == 0:
-                    tp[prediction_index, i] = 1.0
-                    gt_checked[jmax, i] = 1
-                else:
-                    fp[prediction_index, i] = 1.0
+            if max_overlap > iou_threshold and gt_checked[jmax, i] == 0:
+                tp[prediction_index, i] = 1.0
+                gt_checked[jmax, i] = 1
             else:
                 fp[prediction_index, i] = 1.0
-
     # compute precision recall
     fp = np.cumsum(fp, axis=0)
     tp = np.cumsum(tp, axis=0)
 
     recalls = tp / float(num_gts)
 
-    assert np.all(0 <= recalls) & np.all(recalls <= 1)
+    assert np.all(recalls >= 0) & np.all(recalls <= 1)
 
     # avoid divide by zero in case the first detection matches a difficult ground truth
     precisions = tp / np.maximum(tp + fp, np.finfo(np.float64).eps)
 
-    assert np.all(0 <= precisions) & np.all(precisions <= 1)
+    assert np.all(precisions >= 0) & np.all(precisions <= 1)
 
     ap_list = []
     for i in range(len(iou_threshold_list)):
@@ -375,7 +363,7 @@ def get_average_precisions(gt: list, predictions: list, class_names: list, iou_t
     }]
 
     """
-    assert all([0 <= iou_th <= 1 for iou_th in iou_thresholds])
+    assert all(0 <= iou_th <= 1 for iou_th in iou_thresholds)
 
     gt_by_class_name = group_by_key(gt, "name")
     pred_by_class_name = group_by_key(predictions, "name")
@@ -402,7 +390,7 @@ def get_class_names(gt: dict) -> list:
     Returns: Sorted list of class names.
 
     """
-    return sorted(list(set([x["name"] for x in gt])))
+    return sorted(list({x["name"] for x in gt}))
 
 
 if __name__ == "__main__":

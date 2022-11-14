@@ -20,7 +20,7 @@ class ImageVFE(VFETemplate):
         Builds modules
         """
         for module_name in self.module_topology:
-            module = getattr(self, 'build_%s' % module_name)()
+            module = getattr(self, f'build_{module_name}')()
             self.add_module(module_name, module)
 
     def build_ffn(self):
@@ -42,13 +42,12 @@ class ImageVFE(VFETemplate):
         Returns:
             f2v_module: nn.Module, Frustum to voxel transformation
         """
-        f2v_module = f2v.__all__[self.model_cfg.F2V.NAME](
+        return f2v.__all__[self.model_cfg.F2V.NAME](
             model_cfg=self.model_cfg.F2V,
             grid_size=self.grid_size,
             pc_range=self.pc_range,
-            disc_cfg=self.disc_cfg
+            disc_cfg=self.disc_cfg,
         )
-        return f2v_module
 
     def get_output_feature_dim(self):
         """
@@ -56,8 +55,7 @@ class ImageVFE(VFETemplate):
         Returns:
             out_feature_dim: int, Number of output channels
         """
-        out_feature_dim = self.ffn.get_output_feature_dim()
-        return out_feature_dim
+        return self.ffn.get_output_feature_dim()
 
     def forward(self, batch_dict, **kwargs):
         """

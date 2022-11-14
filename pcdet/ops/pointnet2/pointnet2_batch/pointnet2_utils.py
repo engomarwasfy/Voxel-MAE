@@ -253,15 +253,15 @@ class QueryAndGroup(nn.Module):
 
         if features is not None:
             grouped_features = grouping_operation(features, idx)
-            if self.use_xyz:
-                new_features = torch.cat([grouped_xyz, grouped_features], dim=1)  # (B, C + 3, npoint, nsample)
-            else:
-                new_features = grouped_features
+            return (
+                torch.cat([grouped_xyz, grouped_features], dim=1)
+                if self.use_xyz
+                else grouped_features
+            )
+
         else:
             assert self.use_xyz, "Cannot have not features and not use xyz as a feature!"
-            new_features = grouped_xyz
-
-        return new_features
+            return grouped_xyz
 
 
 class GroupAll(nn.Module):
@@ -278,13 +278,12 @@ class GroupAll(nn.Module):
             new_features: (B, C + 3, 1, N)
         """
         grouped_xyz = xyz.transpose(1, 2).unsqueeze(2)
-        if features is not None:
-            grouped_features = features.unsqueeze(2)
-            if self.use_xyz:
-                new_features = torch.cat([grouped_xyz, grouped_features], dim=1)  # (B, 3 + C, 1, N)
-            else:
-                new_features = grouped_features
-        else:
-            new_features = grouped_xyz
+        if features is None:
+            return grouped_xyz
 
-        return new_features
+        grouped_features = features.unsqueeze(2)
+        return (
+            torch.cat([grouped_xyz, grouped_features], dim=1)
+            if self.use_xyz
+            else grouped_features
+        )

@@ -19,7 +19,7 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
         batch_time = common_utils.AverageMeter()
         forward_time = common_utils.AverageMeter()
 
-    for cur_it in range(total_it_each_epoch):
+    for _ in range(total_it_each_epoch):
         end = time.time()
         try:
             batch = next(dataloader_iter)
@@ -27,7 +27,7 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
             dataloader_iter = iter(train_loader)
             batch = next(dataloader_iter)
             print('new iters')
-        
+
         data_timer = time.time()
         cur_data_time = data_timer - end
 
@@ -80,7 +80,7 @@ def train_one_epoch(model, optimizer, train_loader, model_func, lr_scheduler, ac
                 tb_log.add_scalar('train/loss', loss, accumulated_iter)
                 tb_log.add_scalar('meta_data/learning_rate', cur_lr, accumulated_iter)
                 for key, val in tb_dict.items():
-                    tb_log.add_scalar('train/' + key, val, accumulated_iter)
+                    tb_log.add_scalar(f'train/{key}', val, accumulated_iter)
     if rank == 0:
         pbar.close()
     return accumulated_iter
@@ -126,7 +126,7 @@ def train_model(model, optimizer, train_loader, model_func, lr_scheduler, optim_
                 ckpt_list.sort(key=os.path.getmtime)
 
                 if ckpt_list.__len__() >= max_ckpt_save_num:
-                    for cur_file_idx in range(0, len(ckpt_list) - max_ckpt_save_num + 1):
+                    for cur_file_idx in range(len(ckpt_list) - max_ckpt_save_num + 1):
                         os.remove(ckpt_list[cur_file_idx])
 
                 ckpt_name = ckpt_save_dir / ('checkpoint_epoch_%d' % trained_epoch)
@@ -144,17 +144,16 @@ def model_state_to_cpu(model_state):
 
 def checkpoint_state(model=None, optimizer=None, epoch=None, it=None):
     optim_state = optimizer.state_dict() if optimizer is not None else None
-    if model is not None:
-        if isinstance(model, torch.nn.parallel.DistributedDataParallel):
-            model_state = model_state_to_cpu(model.module.state_dict())
-        else:
-            model_state = model.state_dict()
-    else:
+    if model is None:
         model_state = None
 
+    elif isinstance(model, torch.nn.parallel.DistributedDataParallel):
+        model_state = model_state_to_cpu(model.module.state_dict())
+    else:
+        model_state = model.state_dict()
     try:
         import pcdet
-        version = 'pcdet+' + pcdet.__version__
+        version = f'pcdet+{pcdet.__version__}'
     except:
         version = 'none'
 
@@ -162,16 +161,7 @@ def checkpoint_state(model=None, optimizer=None, epoch=None, it=None):
 
 
 def save_checkpoint(state, filename='checkpoint'):
-    if False and 'optimizer_state' in state:
-        optimizer_state = state['optimizer_state']
-        state.pop('optimizer_state', None)
-        optimizer_filename = '{}_optim.pth'.format(filename)
-        if torch.__version__ >= '1.4':
-            torch.save({'optimizer_state': optimizer_state}, optimizer_filename, _use_new_zipfile_serialization=False)
-        else:
-            torch.save({'optimizer_state': optimizer_state}, optimizer_filename)
-
-    filename = '{}.pth'.format(filename)
+    filename = f'{filename}.pth'
     if torch.__version__ >= '1.4':
         torch.save(state, filename, _use_new_zipfile_serialization=False)
     else:

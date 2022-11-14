@@ -68,13 +68,15 @@ class FrustumGridGenerator(nn.Module):
         """
         x_size, y_size, z_size = voxel_size
         x_min, y_min, z_min = pc_min
-        unproject = torch.tensor([[x_size, 0, 0, x_min],
-                                  [0, y_size, 0, y_min],
-                                  [0,  0, z_size, z_min],
-                                  [0,  0, 0, 1]],
-                                 dtype=self.dtype)  # (4, 4)
-
-        return unproject
+        return torch.tensor(
+            [
+                [x_size, 0, 0, x_min],
+                [0, y_size, 0, y_min],
+                [0, 0, z_size, z_min],
+                [0, 0, 0, 1],
+            ],
+            dtype=self.dtype,
+        )
 
     def transform_grid(self, voxel_grid, grid_to_lidar, lidar_to_cam, cam_to_img):
         """
@@ -111,8 +113,7 @@ class FrustumGridGenerator(nn.Module):
 
         # Stack to form frustum grid
         image_depths = image_depths.unsqueeze(-1)
-        frustum_grid = torch.cat((image_grid, image_depths), dim=-1)
-        return frustum_grid
+        return torch.cat((image_grid, image_depths), dim=-1)
 
     def forward(self, lidar_to_cam, cam_to_img, image_shape):
         """

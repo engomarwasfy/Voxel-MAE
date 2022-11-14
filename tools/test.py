@@ -85,13 +85,22 @@ def get_no_evaluated_ckpt(ckpt_dir, ckpt_record_file, args):
 
 def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir, dist_test=False):
     # evaluated ckpt record
-    ckpt_record_file = eval_output_dir / ('eval_list_%s.txt' % cfg.DATA_CONFIG.DATA_SPLIT['test'])
+    ckpt_record_file = (
+        eval_output_dir / f"eval_list_{cfg.DATA_CONFIG.DATA_SPLIT['test']}.txt"
+    )
+
     with open(ckpt_record_file, 'a'):
         pass
 
     # tensorboard log
     if cfg.LOCAL_RANK == 0:
-        tb_log = SummaryWriter(log_dir=str(eval_output_dir / ('tensorboard_%s' % cfg.DATA_CONFIG.DATA_SPLIT['test'])))
+        tb_log = SummaryWriter(
+            log_dir=str(
+                eval_output_dir
+                / f"tensorboard_{cfg.DATA_CONFIG.DATA_SPLIT['test']}"
+            )
+        )
+
     total_time = 0
     first_eval = True
 
@@ -116,7 +125,12 @@ def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir
         model.cuda()
 
         # start evaluation
-        cur_result_dir = eval_output_dir / ('epoch_%s' % cur_epoch_id) / cfg.DATA_CONFIG.DATA_SPLIT['test']
+        cur_result_dir = (
+            eval_output_dir
+            / f'epoch_{cur_epoch_id}'
+            / cfg.DATA_CONFIG.DATA_SPLIT['test']
+        )
+
         tb_dict = eval_utils.eval_one_epoch(
             cfg, model, test_loader, cur_epoch_id, logger, dist_test=dist_test,
             result_dir=cur_result_dir, save_to_file=args.save_to_file
@@ -128,8 +142,8 @@ def repeat_eval_ckpt(model, test_loader, args, eval_output_dir, logger, ckpt_dir
 
         # record this epoch which has been evaluated
         with open(ckpt_record_file, 'a') as f:
-            print('%s' % cur_epoch_id, file=f)
-        logger.info('Epoch %s has been evaluated' % cur_epoch_id)
+            print(f'{cur_epoch_id}', file=f)
+        logger.info(f'Epoch {cur_epoch_id} has been evaluated')
 
 
 def main():
@@ -138,9 +152,10 @@ def main():
         dist_test = False
         total_gpus = 1
     else:
-        total_gpus, cfg.LOCAL_RANK = getattr(common_utils, 'init_dist_%s' % args.launcher)(
-            args.tcp_port, args.local_rank, backend='nccl'
-        )
+        total_gpus, cfg.LOCAL_RANK = getattr(
+            common_utils, f'init_dist_{args.launcher}'
+        )(args.tcp_port, args.local_rank, backend='nccl')
+
         dist_test = True
 
     if args.batch_size is None:
@@ -157,7 +172,12 @@ def main():
     if not args.eval_all:
         num_list = re.findall(r'\d+', args.ckpt) if args.ckpt is not None else []
         epoch_id = num_list[-1] if num_list.__len__() > 0 else 'no_number'
-        eval_output_dir = eval_output_dir / ('epoch_%s' % epoch_id) / cfg.DATA_CONFIG.DATA_SPLIT['test']
+        eval_output_dir = (
+            eval_output_dir
+            / f'epoch_{epoch_id}'
+            / cfg.DATA_CONFIG.DATA_SPLIT['test']
+        )
+
     else:
         eval_output_dir = eval_output_dir / 'eval_all_default'
 
@@ -165,13 +185,17 @@ def main():
         eval_output_dir = eval_output_dir / args.eval_tag
 
     eval_output_dir.mkdir(parents=True, exist_ok=True)
-    log_file = eval_output_dir / ('log_eval_%s.txt' % datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))
+    log_file = (
+        eval_output_dir
+        / f"log_eval_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+    )
+
     logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
 
     # log to file
     logger.info('**********************Start logging**********************')
     gpu_list = os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ.keys() else 'ALL'
-    logger.info('CUDA_VISIBLE_DEVICES=%s' % gpu_list)
+    logger.info(f'CUDA_VISIBLE_DEVICES={gpu_list}')
 
     if dist_test:
         logger.info('total_batch_size: %d' % (total_gpus * args.batch_size))

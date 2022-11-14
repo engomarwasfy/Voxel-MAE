@@ -38,8 +38,7 @@ def generate_labels(frame):
         obj_ids.append(laser_labels[i].id)
         num_points_in_gt.append(laser_labels[i].num_lidar_points_in_box)
 
-    annotations = {}
-    annotations['name'] = np.array(obj_name)
+    annotations = {'name': np.array(obj_name)}
     annotations['difficulty'] = np.array(difficulty)
     annotations['dimensions'] = np.array(dimensions)
     annotations['location'] = np.array(locations)
@@ -186,18 +185,18 @@ def process_single_sequence(sequence_file, save_path, sampled_interval, has_labe
 
     # print('Load record (sampled_interval=%d): %s' % (sampled_interval, sequence_name))
     if not sequence_file.exists():
-        print('NotFoundError: %s' % sequence_file)
+        print(f'NotFoundError: {sequence_file}')
         return []
 
     dataset = tf.data.TFRecordDataset(str(sequence_file), compression_type='')
     cur_save_dir = save_path / sequence_name
     cur_save_dir.mkdir(parents=True, exist_ok=True)
-    pkl_file = cur_save_dir / ('%s.pkl' % sequence_name)
+    pkl_file = cur_save_dir / f'{sequence_name}.pkl'
 
     sequence_infos = []
     if pkl_file.exists():
         sequence_infos = pickle.load(open(pkl_file, 'rb'))
-        print('Skip sequence since it has been processed before: %s' % pkl_file)
+        print(f'Skip sequence since it has been processed before: {pkl_file}')
         return sequence_infos
 
     for cnt, data in enumerate(dataset):
@@ -207,21 +206,21 @@ def process_single_sequence(sequence_file, save_path, sampled_interval, has_labe
         frame = dataset_pb2.Frame()
         frame.ParseFromString(bytearray(data.numpy()))
 
-        info = {}
         pc_info = {'num_features': 5, 'lidar_sequence': sequence_name, 'sample_idx': cnt}
-        info['point_cloud'] = pc_info
-
-        info['frame_id'] = sequence_name + ('_%03d' % cnt)
-        info['metadata'] = {
-            'context_name': frame.context.name,
-            'timestamp_micros': frame.timestamp_micros
-        }
         image_info = {}
         for j in range(5):
             width = frame.context.camera_calibrations[j].width
             height = frame.context.camera_calibrations[j].height
-            image_info.update({'image_shape_%d' % j: (height, width)})
-        info['image'] = image_info
+            image_info['image_shape_%d' % j] = (height, width)
+        info = {
+            'point_cloud': pc_info,
+            'frame_id': sequence_name + '_%03d' % cnt,
+            'metadata': {
+                'context_name': frame.context.name,
+                'timestamp_micros': frame.timestamp_micros,
+            },
+            'image': image_info,
+        }
 
         pose = np.array(frame.pose.transform, dtype=np.float32).reshape(4, 4)
         info['pose'] = pose

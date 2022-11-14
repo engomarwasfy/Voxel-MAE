@@ -26,11 +26,8 @@ def get_kitti_info_path(idx,
     else:
         file_path = pathlib.Path('testing') / info_type / img_idx_str
     if not (prefix / file_path).exists():
-        raise ValueError("file not exist: {}".format(file_path))
-    if relative_path:
-        return str(file_path)
-    else:
-        return str(prefix / file_path)
+        raise ValueError(f"file not exist: {file_path}")
+    return str(file_path) if relative_path else str(prefix / file_path)
 
 
 def get_image_path(idx, prefix, training=True, relative_path=True):
@@ -155,13 +152,14 @@ def filter_kitti_anno(image_anno,
                       dontcare_iou=None):
     if not isinstance(used_classes, (list, tuple)):
         used_classes = [used_classes]
-    img_filtered_annotations = {}
     relevant_annotation_indices = [
         i for i, x in enumerate(image_anno['name']) if x in used_classes
     ]
-    for key in image_anno.keys():
-        img_filtered_annotations[key] = (
-            image_anno[key][relevant_annotation_indices])
+    img_filtered_annotations = {
+        key: image_anno[key][relevant_annotation_indices]
+        for key in image_anno.keys()
+    }
+
     if used_difficulty is not None:
         relevant_annotation_indices = [
             i for i, x in enumerate(img_filtered_annotations['difficulty'])
@@ -191,18 +189,18 @@ def filter_kitti_anno(image_anno,
 def filter_annos_low_score(image_annos, thresh):
     new_image_annos = []
     for anno in image_annos:
-        img_filtered_annotations = {}
         relevant_annotation_indices = [
             i for i, s in enumerate(anno['score']) if s >= thresh
         ]
-        for key in anno.keys():
-            img_filtered_annotations[key] = (
-                anno[key][relevant_annotation_indices])
+        img_filtered_annotations = {
+            key: anno[key][relevant_annotation_indices] for key in anno.keys()
+        }
+
         new_image_annos.append(img_filtered_annotations)
     return new_image_annos
 
 def kitti_result_line(result_dict, precision=4):
-    prec_float = "{" + ":.{}f".format(precision) + "}"
+    prec_float = "{" + f":.{precision}f" + "}"
     res_line = []
     all_field_default = OrderedDict([
         ('name', None),
@@ -219,7 +217,7 @@ def kitti_result_line(result_dict, precision=4):
     res_dict = OrderedDict(res_dict)
     for key, val in result_dict.items():
         if all_field_default[key] is None and val is None:
-            raise ValueError("you must specify a value for {}".format(key))
+            raise ValueError(f"you must specify a value for {key}")
         res_dict[key] = val
 
     for key, val in res_dict.items():
@@ -234,15 +232,14 @@ def kitti_result_line(result_dict, precision=4):
             if val is None:
                 res_line.append(str(all_field_default[key]))
             else:
-                res_line.append('{}'.format(val))
+                res_line.append(f'{val}')
         elif key in ['bbox', 'dimensions', 'location']:
             if val is None:
                 res_line += [str(v) for v in all_field_default[key]]
             else:
                 res_line += [prec_float.format(v) for v in val]
         else:
-            raise ValueError("unknown key. supported key:{}".format(
-                res_dict.keys()))
+            raise ValueError(f"unknown key. supported key:{res_dict.keys()}")
     return ' '.join(res_line)
 
 
@@ -265,15 +262,13 @@ def add_difficulty_to_annos(info):
     easy_mask = np.ones((len(dims), ), dtype=np.bool)
     moderate_mask = np.ones((len(dims), ), dtype=np.bool)
     hard_mask = np.ones((len(dims), ), dtype=np.bool)
-    i = 0
-    for h, o, t in zip(height, occlusion, truncation):
+    for i, (h, o, t) in enumerate(zip(height, occlusion, truncation)):
         if o > max_occlusion[0] or h <= min_height[0] or t > max_trunc[0]:
             easy_mask[i] = False
         if o > max_occlusion[1] or h <= min_height[1] or t > max_trunc[1]:
             moderate_mask[i] = False
         if o > max_occlusion[2] or h <= min_height[2] or t > max_trunc[2]:
             hard_mask[i] = False
-        i += 1
     is_easy = easy_mask
     is_moderate = np.logical_xor(easy_mask, moderate_mask)
     is_hard = np.logical_xor(hard_mask, moderate_mask)
@@ -292,8 +287,7 @@ def add_difficulty_to_annos(info):
 
 
 def get_label_anno(label_path):
-    annotations = {}
-    annotations.update({
+    annotations = {} | {
         'name': [],
         'truncated': [],
         'occluded': [],
@@ -301,8 +295,9 @@ def get_label_anno(label_path):
         'bbox': [],
         'dimensions': [],
         'location': [],
-        'rotation_y': []
-    })
+        'rotation_y': [],
+    }
+
     with open(label_path, 'r') as f:
         lines = f.readlines()
     # if len(lines) == 0 or len(lines[0]) < 15:
@@ -323,7 +318,7 @@ def get_label_anno(label_path):
         [[float(info) for info in x[11:14]] for x in content]).reshape(-1, 3)
     annotations['rotation_y'] = np.array(
         [float(x[14]) for x in content]).reshape(-1)
-    if len(content) != 0 and len(content[0]) == 16:  # have score
+    if content and len(content[0]) == 16:  # have score
         annotations['score'] = np.array([float(x[15]) for x in content])
     else:
         annotations['score'] = np.zeros([len(annotations['bbox'])])
@@ -342,7 +337,7 @@ def get_label_annos(label_folder, image_ids=None):
     label_folder = pathlib.Path(label_folder)
     for idx in image_ids:
         image_idx = get_image_index_str(idx)
-        label_filename = label_folder / (image_idx + '.txt')
+        label_filename = label_folder / f'{image_idx}.txt'
         annos.append(get_label_anno(label_filename))
     return annos
 

@@ -25,11 +25,8 @@ def limit_period(val, offset=0.5, period=np.pi):
 
 
 def drop_info_with_name(info, name):
-    ret_info = {}
     keep_indices = [i for i, x in enumerate(info['name']) if x != name]
-    for key in info.keys():
-        ret_info[key] = info[key][keep_indices]
-    return ret_info
+    return {key: info[key][keep_indices] for key in info.keys()}
 
 
 def rotate_points_along_z(points, angle):
@@ -58,9 +55,12 @@ def rotate_points_along_z(points, angle):
 
 
 def mask_points_by_range(points, limit_range):
-    mask = (points[:, 0] >= limit_range[0]) & (points[:, 0] <= limit_range[3]) \
-           & (points[:, 1] >= limit_range[1]) & (points[:, 1] <= limit_range[4])
-    return mask
+    return (
+        (points[:, 0] >= limit_range[0])
+        & (points[:, 0] <= limit_range[3])
+        & (points[:, 1] >= limit_range[1])
+        & (points[:, 1] <= limit_range[4])
+    )
 
 
 def get_voxel_centers(voxel_coords, downsample_times, voxel_size, point_cloud_range):
@@ -77,7 +77,10 @@ def get_voxel_centers(voxel_coords, downsample_times, voxel_size, point_cloud_ra
     assert voxel_coords.shape[1] == 3
     voxel_centers = voxel_coords[:, [2, 1, 0]].float()  # (xyz)
     voxel_size = torch.tensor(voxel_size, device=voxel_centers.device).float() * downsample_times
-    pc_range = torch.tensor(point_cloud_range[0:3], device=voxel_centers.device).float()
+    pc_range = torch.tensor(
+        point_cloud_range[:3], device=voxel_centers.device
+    ).float()
+
     voxel_centers = (voxel_centers + 0.5) * voxel_size + pc_range
     return voxel_centers
 
@@ -130,9 +133,7 @@ def get_pad_params(desired_size, cur_size):
 
     # Calculate amount to pad
     diff = desired_size - cur_size
-    pad_params = (0, diff)
-
-    return pad_params
+    return 0, diff
 
 
 def keep_arrays_by_name(gt_names, used_classes):
@@ -156,7 +157,7 @@ def init_dist_slurm(tcp_port, local_rank, backend='nccl'):
     node_list = os.environ['SLURM_NODELIST']
     num_gpus = torch.cuda.device_count()
     torch.cuda.set_device(proc_id % num_gpus)
-    addr = subprocess.getoutput('scontrol show hostname {} | head -n1'.format(node_list))
+    addr = subprocess.getoutput(f'scontrol show hostname {node_list} | head -n1')
     os.environ['MASTER_PORT'] = str(tcp_port)
     os.environ['MASTER_ADDR'] = addr
     os.environ['WORLD_SIZE'] = str(ntasks)
@@ -190,10 +191,7 @@ def get_dist_info(return_gpu_per_machine=False):
     if torch.__version__ < '1.0':
         initialized = dist._initialized
     else:
-        if dist.is_available():
-            initialized = dist.is_initialized()
-        else:
-            initialized = False
+        initialized = dist.is_initialized() if dist.is_available() else False
     if initialized:
         rank = dist.get_rank()
         world_size = dist.get_world_size()
@@ -213,7 +211,11 @@ def merge_results_dist(result_part, size, tmpdir):
     os.makedirs(tmpdir, exist_ok=True)
 
     dist.barrier()
-    pickle.dump(result_part, open(os.path.join(tmpdir, 'result_part_{}.pkl'.format(rank)), 'wb'))
+    pickle.dump(
+        result_part,
+        open(os.path.join(tmpdir, f'result_part_{rank}.pkl'), 'wb'),
+    )
+
     dist.barrier()
 
     if rank != 0:
@@ -221,7 +223,7 @@ def merge_results_dist(result_part, size, tmpdir):
 
     part_list = []
     for i in range(world_size):
-        part_file = os.path.join(tmpdir, 'result_part_{}.pkl'.format(i))
+        part_file = os.path.join(tmpdir, f'result_part_{i}.pkl')
         part_list.append(pickle.load(open(part_file, 'rb')))
 
     ordered_results = []
@@ -248,8 +250,7 @@ def generate_voxel2pinds(sparse_tensor):
     indices = sparse_tensor.indices.long()
     point_indices = torch.arange(indices.shape[0], device=device, dtype=torch.int32)
     output_shape = [batch_size] + list(spatial_shape)
-    v2pinds_tensor = scatter_point_inds(indices, point_indices, output_shape)
-    return v2pinds_tensor
+    return scatter_point_inds(indices, point_indices, output_shape)
 
 
 def sa_create(name, var):

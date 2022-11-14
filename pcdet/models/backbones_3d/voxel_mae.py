@@ -58,7 +58,7 @@ class Voxel_MAE(nn.Module):
         self.sparse_shape = grid_size[::-1] + [1, 0, 0]
         self.voxel_size = voxel_size
         self.point_cloud_range = point_cloud_range
-        
+
         self.masked_ratio = model_cfg.MASKED_RATIO
 
         norm_fn = partial(nn.BatchNorm1d, eps=1e-3, momentum=0.01)
@@ -109,7 +109,7 @@ class Voxel_MAE(nn.Module):
             self.conv_out = None
 
         self.num_point_features = 16
-        
+
         self.deconv1 = nn.Sequential(
             nn.ConvTranspose3d(128, 32, 3, padding=1, output_padding=1, stride=2, bias=False),
             nn.BatchNorm3d(32),
@@ -151,7 +151,7 @@ class Voxel_MAE(nn.Module):
                 encoded_spconv_tensor: sparse tensor
                 point_features: (N, C)
         """
-  
+      
         voxel_features, voxel_coords = batch_dict['voxel_features'], batch_dict['voxel_coords']
 
         select_ratio = 1 - self.masked_ratio # ratio for select voxel
@@ -161,13 +161,19 @@ class Voxel_MAE(nn.Module):
         select_30 = voxel_coords_distance[:]<=30
         select_30to50 = (voxel_coords_distance[:]>30) & (voxel_coords_distance[:]<=50)
         select_50 = voxel_coords_distance[:]>50
-        
-        
-        id_list = [i for i in range(coords.shape[0])]
-        id_list_select_30 = torch.argwhere(select_30==True).reshape(torch.argwhere(select_30==True).shape[0])
+
+
+        id_list = list(range(coords.shape[0]))
+        id_list_select_30 = torch.argwhere(select_30).reshape(
+            torch.argwhere(select_30).shape[0]
+        )
+
         id_list_select_30to50 = torch.argwhere(select_30to50==True).reshape(torch.argwhere(select_30to50==True).shape[0])
-        id_list_select_50 = torch.argwhere(select_50==True).reshape(torch.argwhere(select_50==True).shape[0])
-        
+        id_list_select_50 = torch.argwhere(select_50).reshape(
+            torch.argwhere(select_50).shape[0]
+        )
+
+
         shuffle_id_list_select_30 = id_list_select_30
         random.shuffle(shuffle_id_list_select_30)
 
@@ -176,7 +182,7 @@ class Voxel_MAE(nn.Module):
 
         shuffle_id_list_select_50 = id_list_select_50
         random.shuffle(shuffle_id_list_select_50)
-                
+
         slect_index = torch.cat((shuffle_id_list_select_30[:int(select_ratio*len(shuffle_id_list_select_30))], 
                                  shuffle_id_list_select_30to50[:int((select_ratio+0.2)*len(shuffle_id_list_select_30to50))], 
                                  shuffle_id_list_select_50[:int((select_ratio+0.2)*len(shuffle_id_list_select_50))]
@@ -215,7 +221,7 @@ class Voxel_MAE(nn.Module):
         x_up1 = self.deconv1(out.dense())
         x_up2 = self.deconv2(x_up1)
         x_up3 = self.deconv3(x_up2)
-   
+
         self.forward_re_dict['pred'] = x_up3
 
         return batch_dict

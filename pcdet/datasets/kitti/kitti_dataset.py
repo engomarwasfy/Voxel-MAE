@@ -26,7 +26,7 @@ class KittiDataset(DatasetTemplate):
         self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
         self.root_split_path = self.root_path / ('training' if self.split != 'test' else 'testing')
 
-        split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
+        split_dir = self.root_path / 'ImageSets' / f'{self.split}.txt'
         self.sample_id_list = [x.strip() for x in open(split_dir).readlines()] if split_dir.exists() else None
 
         self.kitti_infos = []
@@ -57,11 +57,11 @@ class KittiDataset(DatasetTemplate):
         self.split = split
         self.root_split_path = self.root_path / ('training' if self.split != 'test' else 'testing')
 
-        split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
+        split_dir = self.root_path / 'ImageSets' / f'{self.split}.txt'
         self.sample_id_list = [x.strip() for x in open(split_dir).readlines()] if split_dir.exists() else None
 
     def get_lidar(self, idx):
-        lidar_file = self.root_split_path / 'velodyne' / ('%s.bin' % idx)
+        lidar_file = self.root_split_path / 'velodyne' / f'{idx}.bin'
         assert lidar_file.exists()
         return np.fromfile(str(lidar_file), dtype=np.float32).reshape(-1, 4)
 
@@ -73,7 +73,7 @@ class KittiDataset(DatasetTemplate):
         Returns:
             image: (H, W, 3), RGB Image
         """
-        img_file = self.root_split_path / 'image_2' / ('%s.png' % idx)
+        img_file = self.root_split_path / 'image_2' / f'{idx}.png'
         assert img_file.exists()
         image = io.imread(img_file)
         image = image.astype(np.float32)
@@ -81,12 +81,12 @@ class KittiDataset(DatasetTemplate):
         return image
 
     def get_image_shape(self, idx):
-        img_file = self.root_split_path / 'image_2' / ('%s.png' % idx)
+        img_file = self.root_split_path / 'image_2' / f'{idx}.png'
         assert img_file.exists()
         return np.array(io.imread(img_file).shape[:2], dtype=np.int32)
 
     def get_label(self, idx):
-        label_file = self.root_split_path / 'label_2' / ('%s.txt' % idx)
+        label_file = self.root_split_path / 'label_2' / f'{idx}.txt'
         assert label_file.exists()
         return object3d_kitti.get_objects_from_label(label_file)
 
@@ -98,7 +98,7 @@ class KittiDataset(DatasetTemplate):
         Returns:
             depth: (H, W), Depth map
         """
-        depth_file = self.root_split_path / 'depth_2' / ('%s.png' % idx)
+        depth_file = self.root_split_path / 'depth_2' / f'{idx}.png'
         assert depth_file.exists()
         depth = io.imread(depth_file)
         depth = depth.astype(np.float32)
@@ -106,12 +106,12 @@ class KittiDataset(DatasetTemplate):
         return depth
 
     def get_calib(self, idx):
-        calib_file = self.root_split_path / 'calib' / ('%s.txt' % idx)
+        calib_file = self.root_split_path / 'calib' / f'{idx}.txt'
         assert calib_file.exists()
         return calibration_kitti.Calibration(calib_file)
 
     def get_road_plane(self, idx):
-        plane_file = self.root_split_path / 'planes' / ('%s.txt' % idx)
+        plane_file = self.root_split_path / 'planes' / f'{idx}.txt'
         if not plane_file.exists():
             return None
 
@@ -124,7 +124,7 @@ class KittiDataset(DatasetTemplate):
         if plane[1] > 0:
             plane = -plane
 
-        norm = np.linalg.norm(plane[0:3])
+        norm = np.linalg.norm(plane[:3])
         plane = plane / norm
         return plane
 
@@ -143,15 +143,13 @@ class KittiDataset(DatasetTemplate):
         val_flag_1 = np.logical_and(pts_img[:, 0] >= 0, pts_img[:, 0] < img_shape[1])
         val_flag_2 = np.logical_and(pts_img[:, 1] >= 0, pts_img[:, 1] < img_shape[0])
         val_flag_merge = np.logical_and(val_flag_1, val_flag_2)
-        pts_valid_flag = np.logical_and(val_flag_merge, pts_rect_depth >= 0)
-
-        return pts_valid_flag
+        return np.logical_and(val_flag_merge, pts_rect_depth >= 0)
 
     def get_infos(self, num_workers=4, has_label=True, count_inside_pts=True, sample_id_list=None):
         import concurrent.futures as futures
 
         def process_single_scene(sample_idx):
-            print('%s sample_idx: %s' % (self.split, sample_idx))
+            print(f'{self.split} sample_idx: {sample_idx}')
             info = {}
             pc_info = {'num_features': 4, 'lidar_idx': sample_idx}
             info['point_cloud'] = pc_info
@@ -224,8 +222,11 @@ class KittiDataset(DatasetTemplate):
     def create_groundtruth_database(self, info_path=None, used_classes=None, split='train'):
         import torch
 
-        database_save_path = Path(self.root_path) / ('gt_database' if split == 'train' else ('gt_database_%s' % split))
-        db_info_save_path = Path(self.root_path) / ('kitti_dbinfos_%s.pkl' % split)
+        database_save_path = Path(self.root_path) / (
+            'gt_database' if split == 'train' else f'gt_database_{split}'
+        )
+
+        db_info_save_path = Path(self.root_path) / f'kitti_dbinfos_{split}.pkl'
 
         database_save_path.mkdir(parents=True, exist_ok=True)
         all_db_infos = {}
@@ -334,7 +335,7 @@ class KittiDataset(DatasetTemplate):
             annos.append(single_pred_dict)
 
             if output_path is not None:
-                cur_det_file = output_path / ('%s.txt' % frame_id)
+                cur_det_file = output_path / f'{frame_id}.txt'
                 with open(cur_det_file, 'w') as f:
                     bbox = single_pred_dict['bbox']
                     loc = single_pred_dict['location']
@@ -393,10 +394,8 @@ class KittiDataset(DatasetTemplate):
             gt_boxes_camera = np.concatenate([loc, dims, rots[..., np.newaxis]], axis=1).astype(np.float32)
             gt_boxes_lidar = box_utils.boxes3d_kitti_camera_to_lidar(gt_boxes_camera, calib)
 
-            input_dict.update({
-                'gt_names': gt_names,
-                'gt_boxes': gt_boxes_lidar
-            })
+            input_dict |= {'gt_names': gt_names, 'gt_boxes': gt_boxes_lidar}
+
             if "gt_boxes2d" in get_item_list:
                 input_dict['gt_boxes2d'] = annos["bbox"]
 
@@ -431,8 +430,8 @@ def create_kitti_infos(dataset_cfg, class_names, data_path, save_path, workers=4
     dataset = KittiDataset(dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path, training=False)
     train_split, val_split = 'train', 'val'
 
-    train_filename = save_path / ('kitti_infos_%s.pkl' % train_split)
-    val_filename = save_path / ('kitti_infos_%s.pkl' % val_split)
+    train_filename = save_path / f'kitti_infos_{train_split}.pkl'
+    val_filename = save_path / f'kitti_infos_{val_split}.pkl'
     trainval_filename = save_path / 'kitti_infos_trainval.pkl'
     test_filename = save_path / 'kitti_infos_test.pkl'
 
@@ -442,23 +441,23 @@ def create_kitti_infos(dataset_cfg, class_names, data_path, save_path, workers=4
     kitti_infos_train = dataset.get_infos(num_workers=workers, has_label=True, count_inside_pts=True)
     with open(train_filename, 'wb') as f:
         pickle.dump(kitti_infos_train, f)
-    print('Kitti info train file is saved to %s' % train_filename)
+    print(f'Kitti info train file is saved to {train_filename}')
 
     dataset.set_split(val_split)
     kitti_infos_val = dataset.get_infos(num_workers=workers, has_label=True, count_inside_pts=True)
     with open(val_filename, 'wb') as f:
         pickle.dump(kitti_infos_val, f)
-    print('Kitti info val file is saved to %s' % val_filename)
+    print(f'Kitti info val file is saved to {val_filename}')
 
     with open(trainval_filename, 'wb') as f:
         pickle.dump(kitti_infos_train + kitti_infos_val, f)
-    print('Kitti info trainval file is saved to %s' % trainval_filename)
+    print(f'Kitti info trainval file is saved to {trainval_filename}')
 
     dataset.set_split('test')
     kitti_infos_test = dataset.get_infos(num_workers=workers, has_label=False, count_inside_pts=False)
     with open(test_filename, 'wb') as f:
         pickle.dump(kitti_infos_test, f)
-    print('Kitti info test file is saved to %s' % test_filename)
+    print(f'Kitti info test file is saved to {test_filename}')
 
     print('---------------Start create groundtruth database for data augmentation---------------')
     dataset.set_split(train_split)

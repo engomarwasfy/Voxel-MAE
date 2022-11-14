@@ -56,8 +56,7 @@ class DemoDataset(DatasetTemplate):
             'frame_id': index,
         }
 
-        data_dict = self.prepare_data(data_dict=input_dict)
-        return data_dict
+        return self.prepare_data(data_dict=input_dict)
 
 
 def parse_config():

@@ -20,7 +20,7 @@ class LRSchedulerStep(object):
         self.lr_phases = []
 
         for i, (start, lambda_func) in enumerate(lr_phases):
-            if len(self.lr_phases) != 0:
+            if self.lr_phases:
                 assert self.lr_phases[-1][0] < start
             if isinstance(lambda_func, str):
                 lambda_func = eval(lambda_func)
@@ -31,7 +31,7 @@ class LRSchedulerStep(object):
         assert self.lr_phases[0][0] == 0
         self.mom_phases = []
         for i, (start, lambda_func) in enumerate(mom_phases):
-            if len(self.mom_phases) != 0:
+            if self.mom_phases:
                 assert self.mom_phases[-1][0] < start
             if isinstance(lambda_func, str):
                 lambda_func = eval(lambda_func)

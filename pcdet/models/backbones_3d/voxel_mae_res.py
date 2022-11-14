@@ -153,7 +153,7 @@ class Voxel_MAE_res(nn.Module):
         select_30to50 = (voxel_coords_distance[:]>30) & (voxel_coords_distance[:]<=50)
         select_50 = voxel_coords_distance[:]>50
 
-        id_list = [i for i in range(voxel_coords.shape[0])]
+        id_list = list(range(voxel_coords.shape[0]))
         id_list_select_30 = [i for i in id_list if select_30[i]==True]
         id_list_select_30to50 = [i for i in id_list if select_30to50[i]==True]
         id_list_select_50 = [i for i in id_list if select_50[i]==True]
@@ -168,8 +168,8 @@ class Voxel_MAE_res(nn.Module):
         random.shuffle(shuffle_id_list_select_50)
 
         slect_index = shuffle_id_list_select_30[:int(select_ratio*len(shuffle_id_list_select_30))] + \
-            shuffle_id_list_select_30to50[:int((select_ratio+0.2)*len(shuffle_id_list_select_30to50))] + \
-            shuffle_id_list_select_50[:int((select_ratio+0.2)*len(shuffle_id_list_select_50))]
+                shuffle_id_list_select_30to50[:int((select_ratio+0.2)*len(shuffle_id_list_select_30to50))] + \
+                shuffle_id_list_select_50[:int((select_ratio+0.2)*len(shuffle_id_list_select_50))]
 
         nums = voxel_features.shape[0]
 
@@ -204,7 +204,7 @@ class Voxel_MAE_res(nn.Module):
         x_up1 = self.deconv1(out.dense())
         x_up2 = self.deconv2(x_up1)
         x_up3 = self.deconv3(x_up2)
-   
+
         self.forward_re_dict['pred'] = x_up3
 
         return batch_dict

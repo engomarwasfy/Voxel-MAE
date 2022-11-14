@@ -70,10 +70,14 @@ class GroupingOperation(Function):
         assert idx.is_contiguous()
         assert idx_batch_cnt.is_contiguous()
 
-        assert features.shape[0] == features_batch_cnt.sum(), \
-            'features: %s, features_batch_cnt: %s' % (str(features.shape), str(features_batch_cnt))
-        assert idx.shape[0] == idx_batch_cnt.sum(), \
-            'idx: %s, idx_batch_cnt: %s' % (str(idx.shape), str(idx_batch_cnt))
+        assert (
+            features.shape[0] == features_batch_cnt.sum()
+        ), f'features: {str(features.shape)}, features_batch_cnt: {str(features_batch_cnt)}'
+
+        assert (
+            idx.shape[0] == idx_batch_cnt.sum()
+        ), f'idx: {str(idx.shape)}, idx_batch_cnt: {str(idx_batch_cnt)}'
+
 
         M, nsample = idx.size()
         N, C = features.size()
@@ -134,9 +138,14 @@ class QueryAndGroup(nn.Module):
         Returns:
             new_features: (M1 + M2, C, nsample) tensor
         """
-        assert xyz.shape[0] == xyz_batch_cnt.sum(), 'xyz: %s, xyz_batch_cnt: %s' % (str(xyz.shape), str(new_xyz_batch_cnt))
-        assert new_xyz.shape[0] == new_xyz_batch_cnt.sum(), \
-            'new_xyz: %s, new_xyz_batch_cnt: %s' % (str(new_xyz.shape), str(new_xyz_batch_cnt))
+        assert (
+            xyz.shape[0] == xyz_batch_cnt.sum()
+        ), f'xyz: {str(xyz.shape)}, xyz_batch_cnt: {str(new_xyz_batch_cnt)}'
+
+        assert (
+            new_xyz.shape[0] == new_xyz_batch_cnt.sum()
+        ), f'new_xyz: {str(new_xyz.shape)}, new_xyz_batch_cnt: {str(new_xyz_batch_cnt)}'
+
 
         # idx: (M1 + M2 ..., nsample), empty_ball_mask: (M1 + M2 ...)
         idx, empty_ball_mask = ball_query(self.radius, self.nsample, xyz, xyz_batch_cnt, new_xyz, new_xyz_batch_cnt)
@@ -207,7 +216,7 @@ class StackFarthestPointSampling(Function):
         batch_size = xyz_batch_cnt.__len__()
         if not isinstance(npoint, torch.Tensor):
             if not isinstance(npoint, list):
-                npoint = [npoint for i in range(batch_size)]
+                npoint = [npoint for _ in range(batch_size)]
             npoint = torch.tensor(npoint, device=xyz.device).int()
 
         N, _ = xyz.size()
@@ -394,7 +403,7 @@ class VectorPoolWithVoxelQuery(Function):
         M = new_xyz.shape[0]
 
         assert num_c_in % num_c_out_each_grid == 0, \
-            f'the input channels ({num_c_in}) should be an integral multiple of num_c_out_each_grid({num_c_out_each_grid})'
+                f'the input channels ({num_c_in}) should be an integral multiple of num_c_out_each_grid({num_c_out_each_grid})'
 
         while True:
             new_features = support_features.new_zeros((M, num_c_out))
@@ -451,7 +460,3 @@ class VectorPoolWithVoxelQuery(Function):
 
 
 vector_pool_with_voxel_query_op = VectorPoolWithVoxelQuery.apply
-
-
-if __name__ == '__main__':
-    pass

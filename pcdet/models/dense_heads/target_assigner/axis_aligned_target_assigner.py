@@ -67,19 +67,17 @@ class AxisAlignedTargetAssigner(object):
 
                 if self.use_multihead:
                     anchors = anchors.permute(3, 4, 0, 1, 2, 5).contiguous().view(-1, anchors.shape[-1])
-                    # if self.seperate_multihead:
-                    #     selected_classes = cur_gt_classes[mask].clone()
-                    #     if len(selected_classes) > 0:
-                    #         new_cls_id = self.gt_remapping[anchor_class_name]
-                    #         selected_classes[:] = new_cls_id
-                    # else:
-                    #     selected_classes = cur_gt_classes[mask]
-                    selected_classes = cur_gt_classes[mask]
                 else:
                     feature_map_size = anchors.shape[:3]
                     anchors = anchors.view(-1, anchors.shape[-1])
-                    selected_classes = cur_gt_classes[mask]
-
+                # if self.seperate_multihead:
+                #     selected_classes = cur_gt_classes[mask].clone()
+                #     if len(selected_classes) > 0:
+                #         new_cls_id = self.gt_remapping[anchor_class_name]
+                #         selected_classes[:] = new_cls_id
+                # else:
+                #     selected_classes = cur_gt_classes[mask]
+                selected_classes = cur_gt_classes[mask]
                 single_target = self.assign_targets_single(
                     anchors,
                     cur_gt[mask],
@@ -121,13 +119,11 @@ class AxisAlignedTargetAssigner(object):
 
         cls_labels = torch.stack(cls_labels, dim=0)
         reg_weights = torch.stack(reg_weights, dim=0)
-        all_targets_dict = {
+        return {
             'box_cls_labels': cls_labels,
             'box_reg_targets': bbox_targets,
-            'reg_weights': reg_weights
-
+            'reg_weights': reg_weights,
         }
-        return all_targets_dict
 
     def assign_targets_single(self, anchors, gt_boxes, gt_classes, matched_threshold=0.6, unmatched_threshold=0.45):
 
@@ -139,7 +135,7 @@ class AxisAlignedTargetAssigner(object):
 
         if len(gt_boxes) > 0 and anchors.shape[0] > 0:
             anchor_by_gt_overlap = iou3d_nms_utils.boxes_iou3d_gpu(anchors[:, 0:7], gt_boxes[:, 0:7]) \
-                if self.match_height else box_utils.boxes3d_nearest_bev_iou(anchors[:, 0:7], gt_boxes[:, 0:7])
+                    if self.match_height else box_utils.boxes3d_nearest_bev_iou(anchors[:, 0:7], gt_boxes[:, 0:7])
 
             # NOTE: The speed of these two versions depends the environment and the number of anchors
             # anchor_to_gt_argmax = torch.from_numpy(anchor_by_gt_overlap.cpu().numpy().argmax(axis=1)).cuda()
@@ -180,12 +176,11 @@ class AxisAlignedTargetAssigner(object):
                 enable_inds = bg_inds[torch.randint(0, len(bg_inds), size=(num_bg,))]
                 labels[enable_inds] = 0
             # bg_inds = torch.nonzero(labels == 0)[:, 0]
+        elif len(gt_boxes) == 0 or anchors.shape[0] == 0:
+            labels[:] = 0
         else:
-            if len(gt_boxes) == 0 or anchors.shape[0] == 0:
-                labels[:] = 0
-            else:
-                labels[bg_inds] = 0
-                labels[anchors_with_max_overlap] = gt_classes[gt_inds_force]
+            labels[bg_inds] = 0
+            labels[anchors_with_max_overlap] = gt_classes[gt_inds_force]
 
         bbox_targets = anchors.new_zeros((num_anchors, self.box_coder.code_size))
         if len(gt_boxes) > 0 and anchors.shape[0] > 0:
@@ -197,14 +192,13 @@ class AxisAlignedTargetAssigner(object):
 
         if self.norm_by_num_examples:
             num_examples = (labels >= 0).sum()
-            num_examples = num_examples if num_examples > 1.0 else 1.0
+            num_examples = max(num_examples, 1.0)
             reg_weights[labels > 0] = 1.0 / num_examples
         else:
             reg_weights[labels > 0] = 1.0
 
-        ret_dict = {
+        return {
             'box_cls_labels': labels,
             'box_reg_targets': bbox_targets,
             'reg_weights': reg_weights,
         }
-        return ret_dict

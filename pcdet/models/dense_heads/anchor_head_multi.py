@@ -26,7 +26,7 @@ class SingleHead(BaseBEVBackbone):
             num_middle_filter = self.separate_reg_config.NUM_MIDDLE_FILTER
             conv_cls_list = []
             c_in = input_channels
-            for k in range(num_middle_conv):
+            for _ in range(num_middle_conv):
                 conv_cls_list.extend([
                     nn.Conv2d(
                         c_in, num_middle_filter,
@@ -47,7 +47,7 @@ class SingleHead(BaseBEVBackbone):
                 reg_channel = int(reg_channel)
                 cur_conv_list = []
                 c_in = input_channels
-                for k in range(num_middle_conv):
+                for _ in range(num_middle_conv):
                     cur_conv_list.extend([
                         nn.Conv2d(
                             c_in, num_middle_filter,
@@ -58,10 +58,17 @@ class SingleHead(BaseBEVBackbone):
                     ])
                     c_in = num_middle_filter
 
-                cur_conv_list.append(nn.Conv2d(
-                    c_in, self.num_anchors_per_location * int(reg_channel),
-                    kernel_size=3, stride=1, padding=1, bias=True
-                ))
+                cur_conv_list.append(
+                    nn.Conv2d(
+                        c_in,
+                        self.num_anchors_per_location * reg_channel,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                        bias=True,
+                    )
+                )
+
                 code_size_cnt += reg_channel
                 self.conv_box[f'conv_{reg_name}'] = nn.Sequential(*cur_conv_list)
                 self.conv_box_names.append(f'conv_{reg_name}')
@@ -102,7 +109,6 @@ class SingleHead(BaseBEVBackbone):
             nn.init.constant_(self.conv_cls[-1].bias, -np.log((1 - pi) / pi))
 
     def forward(self, spatial_features_2d):
-        ret_dict = {}
         spatial_features_2d = super().forward({'spatial_features': spatial_features_2d})['spatial_features_2d']
 
         cls_preds = self.conv_cls(spatial_features_2d)
@@ -110,9 +116,11 @@ class SingleHead(BaseBEVBackbone):
         if self.separate_reg_config is None:
             box_preds = self.conv_box(spatial_features_2d)
         else:
-            box_preds_list = []
-            for reg_name in self.conv_box_names:
-                box_preds_list.append(self.conv_box[reg_name](spatial_features_2d))
+            box_preds_list = [
+                self.conv_box[reg_name](spatial_features_2d)
+                for reg_name in self.conv_box_names
+            ]
+
             box_preds = torch.cat(box_preds_list, dim=1)
 
         if not self.use_multihead:
@@ -141,11 +149,11 @@ class SingleHead(BaseBEVBackbone):
         else:
             dir_cls_preds = None
 
-        ret_dict['cls_preds'] = cls_preds
-        ret_dict['box_preds'] = box_preds
-        ret_dict['dir_cls_preds'] = dir_cls_preds
-
-        return ret_dict
+        return {
+            'cls_preds': cls_preds,
+            'box_preds': box_preds,
+            'dir_cls_preds': dir_cls_preds,
+        }
 
 
 class AnchorHeadMulti(AnchorHeadTemplate):
@@ -179,8 +187,11 @@ class AnchorHeadMulti(AnchorHeadTemplate):
             class_names.extend(rpn_head_cfg['HEAD_CLS_NAME'])
 
         for rpn_head_cfg in rpn_head_cfgs:
-            num_anchors_per_location = sum([self.num_anchors_per_location[class_names.index(head_cls)]
-                                            for head_cls in rpn_head_cfg['HEAD_CLS_NAME']])
+            num_anchors_per_location = sum(
+                self.num_anchors_per_location[class_names.index(head_cls)]
+                for head_cls in rpn_head_cfg['HEAD_CLS_NAME']
+            )
+
             head_label_indices = torch.from_numpy(np.array([
                 self.class_names.index(cur_name) + 1 for cur_name in rpn_head_cfg['HEAD_CLS_NAME']
             ]))
@@ -200,10 +211,7 @@ class AnchorHeadMulti(AnchorHeadTemplate):
         if self.shared_conv is not None:
             spatial_features_2d = self.shared_conv(spatial_features_2d)
 
-        ret_dicts = []
-        for rpn_head in self.rpn_heads:
-            ret_dicts.append(rpn_head(spatial_features_2d))
-
+        ret_dicts = [rpn_head(spatial_features_2d) for rpn_head in self.rpn_heads]
         cls_preds = [ret_dict['cls_preds'] for ret_dict in ret_dicts]
         box_preds = [ret_dict['box_preds'] for ret_dict in ret_dicts]
         ret = {
@@ -230,9 +238,10 @@ class AnchorHeadMulti(AnchorHeadTemplate):
             )
 
             if isinstance(batch_cls_preds, list):
-                multihead_label_mapping = []
-                for idx in range(len(batch_cls_preds)):
-                    multihead_label_mapping.append(self.rpn_heads[idx].head_label_indices)
+                multihead_label_mapping = [
+                    self.rpn_heads[idx].head_label_indices
+                    for idx in range(len(batch_cls_preds))
+                ]
 
                 data_dict['multihead_label_mapping'] = multihead_label_mapping
 
@@ -332,9 +341,13 @@ class AnchorHeadMulti(AnchorHeadTemplate):
         tb_dict = {}
         for idx, box_pred in enumerate(box_preds):
             box_pred = box_pred.view(
-                batch_size, -1,
-                box_pred.shape[-1] // self.num_anchors_per_location if not self.use_multihead else box_pred.shape[-1]
+                batch_size,
+                -1,
+                box_pred.shape[-1]
+                if self.use_multihead
+                else box_pred.shape[-1] // self.num_anchors_per_location,
             )
+
             box_reg_target = box_reg_targets[:, start_idx:start_idx + box_pred.shape[1]]
             reg_weight = reg_weights[:, start_idx:start_idx + box_pred.shape[1]]
             # sin(a - b) = sinacosb-cosasinb

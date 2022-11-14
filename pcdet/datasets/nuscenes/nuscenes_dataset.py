@@ -49,7 +49,7 @@ class NuScenesDataset(DatasetTemplate):
                 if name in self.class_names:
                     cls_infos[name].append(info)
 
-        duplicated_samples = sum([len(v) for _, v in cls_infos.items()])
+        duplicated_samples = sum(len(v) for _, v in cls_infos.items())
         cls_dist = {k: len(v) / duplicated_samples for k, v in cls_infos.items()}
 
         sampled_infos = []
@@ -61,7 +61,10 @@ class NuScenesDataset(DatasetTemplate):
             sampled_infos += np.random.choice(
                 cur_cls_infos, int(len(cur_cls_infos) * ratio)
             ).tolist()
-        self.logger.info('Total samples after balanced resampling: %s' % (len(sampled_infos)))
+        self.logger.info(
+            f'Total samples after balanced resampling: {len(sampled_infos)}'
+        )
+
 
         cls_infos_new = {name: [] for name in self.class_names}
         for info in sampled_infos:
@@ -133,10 +136,15 @@ class NuScenesDataset(DatasetTemplate):
             else:
                 mask = None
 
-            input_dict.update({
-                'gt_names': info['gt_names'] if mask is None else info['gt_names'][mask],
-                'gt_boxes': info['gt_boxes'] if mask is None else info['gt_boxes'][mask]
-            })
+            input_dict |= {
+                'gt_names': info['gt_names']
+                if mask is None
+                else info['gt_names'][mask],
+                'gt_boxes': info['gt_boxes']
+                if mask is None
+                else info['gt_boxes'][mask],
+            }
+
 
         data_dict = self.prepare_data(data_dict=input_dict)
 
@@ -304,15 +312,15 @@ def create_nuscenes_info(version, data_path, save_path, max_sweeps=10):
     save_path = save_path / version
 
     assert version in ['v1.0-trainval', 'v1.0-test', 'v1.0-mini']
-    if version == 'v1.0-trainval':
-        train_scenes = splits.train
-        val_scenes = splits.val
+    if version == 'v1.0-mini':
+        train_scenes = splits.mini_train
+        val_scenes = splits.mini_val
     elif version == 'v1.0-test':
         train_scenes = splits.test
         val_scenes = []
-    elif version == 'v1.0-mini':
-        train_scenes = splits.mini_train
-        val_scenes = splits.mini_val
+    elif version == 'v1.0-trainval':
+        train_scenes = splits.train
+        val_scenes = splits.val
     else:
         raise NotImplementedError
 
@@ -321,8 +329,16 @@ def create_nuscenes_info(version, data_path, save_path, max_sweeps=10):
     available_scene_names = [s['name'] for s in available_scenes]
     train_scenes = list(filter(lambda x: x in available_scene_names, train_scenes))
     val_scenes = list(filter(lambda x: x in available_scene_names, val_scenes))
-    train_scenes = set([available_scenes[available_scene_names.index(s)]['token'] for s in train_scenes])
-    val_scenes = set([available_scenes[available_scene_names.index(s)]['token'] for s in val_scenes])
+    train_scenes = {
+        available_scenes[available_scene_names.index(s)]['token']
+        for s in train_scenes
+    }
+
+    val_scenes = {
+        available_scenes[available_scene_names.index(s)]['token']
+        for s in val_scenes
+    }
+
 
     print('%s: train scene(%d), val scene(%d)' % (version, len(train_scenes), len(val_scenes)))
 

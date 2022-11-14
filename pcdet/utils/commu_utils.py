@@ -15,17 +15,13 @@ import torch.distributed as dist
 def get_world_size():
     if not dist.is_available():
         return 1
-    if not dist.is_initialized():
-        return 1
-    return dist.get_world_size()
+    return dist.get_world_size() if dist.is_initialized() else 1
 
 
 def get_rank():
     if not dist.is_available():
         return 0
-    if not dist.is_initialized():
-        return 0
-    return dist.get_rank()
+    return dist.get_rank() if dist.is_initialized() else 0
 
 
 def is_main_process():
@@ -81,9 +77,11 @@ def all_gather(data):
     # receiving Tensor from all ranks
     # we pad the tensor because torch all_gather does not support
     # gathering tensors of different shapes
-    tensor_list = []
-    for _ in size_list:
-        tensor_list.append(torch.FloatTensor(size=(max_size,)).cuda().to(tensor_type))
+    tensor_list = [
+        torch.FloatTensor(size=(max_size,)).cuda().to(tensor_type)
+        for _ in size_list
+    ]
+
     if local_size != max_size:
         padding = torch.FloatTensor(size=(max_size - local_size,)).cuda().to(tensor_type)
         tensor = torch.cat((tensor, padding), dim=0)
@@ -98,17 +96,16 @@ def all_gather(data):
             buffer = tensor[:size]
             data_list.append(buffer)
 
-    if origin_size is not None:
-        new_shape = [-1] + list(origin_size[1:])
-        resized_list = []
-        for data in data_list:
-            # suppose the difference of tensor size exist in first dimension
-            data = data.reshape(new_shape)
-            resized_list.append(data)
-
-        return resized_list
-    else:
+    if origin_size is None:
         return data_list
+    new_shape = [-1] + list(origin_size[1:])
+    resized_list = []
+    for data in data_list:
+        # suppose the difference of tensor size exist in first dimension
+        data = data.reshape(new_shape)
+        resized_list.append(data)
+
+    return resized_list
 
 
 def reduce_dict(input_dict, average=True):
@@ -136,7 +133,7 @@ def reduce_dict(input_dict, average=True):
             # only main process gets accumulated, so only divide by
             # world_size in this case
             values /= world_size
-        reduced_dict = {k: v for k, v in zip(names, values)}
+        reduced_dict = dict(zip(names, values))
     return reduced_dict
 
 
@@ -178,5 +175,4 @@ def concat_all_gather(tensor):
         for _ in range(torch.distributed.get_world_size())]
     torch.distributed.all_gather(tensors_gather, tensor, async_op=False)
 
-    output = torch.cat(tensors_gather, dim=0)
-    return output
+    return torch.cat(tensors_gather, dim=0)

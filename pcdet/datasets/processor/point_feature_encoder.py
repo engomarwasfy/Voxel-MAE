@@ -5,7 +5,7 @@ class PointFeatureEncoder(object):
     def __init__(self, config, point_cloud_range=None):
         super().__init__()
         self.point_encoding_config = config
-        assert list(self.point_encoding_config.src_feature_list[0:3]) == ['x', 'y', 'z']
+        assert list(self.point_encoding_config.src_feature_list[:3]) == ['x', 'y', 'z']
         self.used_feature_list = self.point_encoding_config.used_feature_list
         self.src_feature_list = self.point_encoding_config.src_feature_list
         self.point_cloud_range = point_cloud_range
@@ -42,9 +42,7 @@ class PointFeatureEncoder(object):
 
     def absolute_coordinates_encoding(self, points=None):
         if points is None:
-            num_output_features = len(self.used_feature_list)
-            return num_output_features
-
+            return len(self.used_feature_list)
         point_feature_list = [points[:, 0:3]]
         for x in self.used_feature_list:
             if x in ['x', 'y', 'z']:
@@ -52,5 +50,5 @@ class PointFeatureEncoder(object):
             idx = self.src_feature_list.index(x)
             point_feature_list.append(points[:, idx:idx+1])
         point_features = np.concatenate(point_feature_list, axis=1)
-        
+
         return point_features, True

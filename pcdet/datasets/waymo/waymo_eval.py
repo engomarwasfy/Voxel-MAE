@@ -100,7 +100,7 @@ class OpenPCDetWaymoDetectionMetricsEstimator(tf.test.TestCase):
         box_type: TYPE_3D
         """
 
-        for x in range(0, 100):
+        for x in range(100):
             config.score_cutoffs.append(x * 0.01)
         config.score_cutoffs.append(1.0)
 
@@ -119,7 +119,7 @@ class OpenPCDetWaymoDetectionMetricsEstimator(tf.test.TestCase):
             self._gt_bbox = tf.compat.v1.placeholder(dtype=tf.float32)
             self._gt_type = tf.compat.v1.placeholder(dtype=tf.uint8)
             self._gt_difficulty = tf.compat.v1.placeholder(dtype=tf.uint8)
-            metrics = detection_metrics.get_detection_metric_ops(
+            return detection_metrics.get_detection_metric_ops(
                 config=self.build_config(),
                 prediction_frame_id=self._pd_frame_id,
                 prediction_bbox=self._pd_bbox,
@@ -131,7 +131,6 @@ class OpenPCDetWaymoDetectionMetricsEstimator(tf.test.TestCase):
                 ground_truth_frame_id=self._gt_frame_id,
                 ground_truth_difficulty=self._gt_difficulty,
             )
-            return metrics
 
     def run_eval_ops(
         self,
@@ -170,9 +169,7 @@ class OpenPCDetWaymoDetectionMetricsEstimator(tf.test.TestCase):
         mask = np.linalg.norm(boxes_3d[:, 0:2], axis=1) < distance_thresh + 0.5
         boxes_3d = boxes_3d[mask]
         ret_ans = [boxes_3d]
-        for arg in args:
-            ret_ans.append(arg[mask])
-
+        ret_ans.extend(arg[mask] for arg in args)
         return tuple(ret_ans)
 
     def waymo_evaluation(self, prediction_infos, gt_infos, class_name, distance_thresh=100, fake_gt_infos=True):

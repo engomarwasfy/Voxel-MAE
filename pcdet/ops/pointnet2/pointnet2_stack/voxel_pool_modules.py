@@ -20,7 +20,7 @@ class NeighborVoxelSAModuleMSG(nn.Module):
         super().__init__()
 
         assert len(query_ranges) == len(nsamples) == len(mlps)
-        
+
         self.groupers = nn.ModuleList()
         self.mlps_in = nn.ModuleList()
         self.mlps_pos = nn.ModuleList()
@@ -36,7 +36,7 @@ class NeighborVoxelSAModuleMSG(nn.Module):
                 nn.Conv1d(mlp_spec[0], mlp_spec[1], kernel_size=1, bias=False),
                 nn.BatchNorm1d(mlp_spec[1])
             )
-            
+
             cur_mlp_pos = nn.Sequential(
                 nn.Conv2d(3, mlp_spec[1], kernel_size=1, bias=False),
                 nn.BatchNorm2d(mlp_spec[1])
@@ -59,11 +59,11 @@ class NeighborVoxelSAModuleMSG(nn.Module):
 
     def init_weights(self):
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d):
+            if isinstance(m, (nn.Conv2d, nn.Conv1d)):
                 nn.init.kaiming_normal_(m.weight)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+            if isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
                 nn.init.constant_(m.weight, 1.0)
                 nn.init.constant_(m.bias, 0)
 

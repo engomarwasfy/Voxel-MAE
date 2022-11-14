@@ -16,12 +16,9 @@ class DataBaseSampler(object):
         self.class_names = class_names
         self.sampler_cfg = sampler_cfg
         self.logger = logger
-        self.db_infos = {}
-        for class_name in class_names:
-            self.db_infos[class_name] = []
-            
+        self.db_infos = {class_name: [] for class_name in class_names}
         self.use_shared_memory = sampler_cfg.get('USE_SHARED_MEMORY', False)
-        
+
         for db_info_path in sampler_cfg.DB_INFO_PATH:
             db_info_path = self.root_path.resolve() / db_info_path
             with open(str(db_info_path), 'rb') as f:
@@ -30,7 +27,7 @@ class DataBaseSampler(object):
 
         for func_name, val in sampler_cfg.PREPARE.items():
             self.db_infos = getattr(self, func_name)(self.db_infos, val)
-        
+
         self.gt_database_data_key = self.load_db_to_shared_memory() if self.use_shared_memory else None
 
         self.sample_groups = {}
@@ -88,12 +85,12 @@ class DataBaseSampler(object):
     def filter_by_difficulty(self, db_infos, removed_difficulty):
         new_db_infos = {}
         for key, dinfos in db_infos.items():
-            pre_len = len(dinfos)
             new_db_infos[key] = [
                 info for info in dinfos
                 if info['difficulty'] not in removed_difficulty
             ]
             if self.logger is not None:
+                pre_len = len(dinfos)
                 self.logger.info('Database filter by difficulty %s: %d => %d' % (key, pre_len, len(new_db_infos[key])))
         return new_db_infos
 
@@ -102,10 +99,11 @@ class DataBaseSampler(object):
             name, min_num = name_num.split(':')
             min_num = int(min_num)
             if min_num > 0 and name in db_infos.keys():
-                filtered_infos = []
-                for info in db_infos[name]:
-                    if info['num_points_in_gt'] >= min_num:
-                        filtered_infos.append(info)
+                filtered_infos = [
+                    info
+                    for info in db_infos[name]
+                    if info['num_points_in_gt'] >= min_num
+                ]
 
                 if self.logger is not None:
                     self.logger.info('Database filter by min points %s: %d => %d' %

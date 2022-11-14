@@ -43,10 +43,8 @@ class PFNLayer(nn.Module):
 
         if self.last_vfe:
             return x_max
-        else:
-            x_repeat = x_max.repeat(1, inputs.shape[1], 1)
-            x_concatenated = torch.cat([x, x_repeat], dim=2)
-            return x_concatenated
+        x_repeat = x_max.repeat(1, inputs.shape[1], 1)
+        return torch.cat([x, x_repeat], dim=2)
 
 
 class PillarVFE(VFETemplate):
@@ -88,11 +86,10 @@ class PillarVFE(VFETemplate):
         max_num_shape = [1] * len(actual_num.shape)
         max_num_shape[axis + 1] = -1
         max_num = torch.arange(max_num, dtype=torch.int, device=actual_num.device).view(max_num_shape)
-        paddings_indicator = actual_num.int() > max_num
-        return paddings_indicator
+        return actual_num.int() > max_num
 
     def forward(self, batch_dict, **kwargs):
-  
+
         voxel_features, voxel_num_points, coords = batch_dict['voxels'], batch_dict['voxel_num_points'], batch_dict['voxel_coords']
         points_mean = voxel_features[:, :, :3].sum(dim=1, keepdim=True) / voxel_num_points.type_as(voxel_features).view(-1, 1, 1)
         f_cluster = voxel_features[:, :, :3] - points_mean

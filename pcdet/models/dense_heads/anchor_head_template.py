@@ -45,7 +45,7 @@ class AnchorHeadTemplate(nn.Module):
 
         if anchor_ndim != 7:
             for idx, anchors in enumerate(anchors_list):
-                pad_zeros = anchors.new_zeros([*anchors.shape[0:-1], anchor_ndim - 7])
+                pad_zeros = anchors.new_zeros([*anchors.shape[:-1], anchor_ndim - 7])
                 new_anchors = torch.cat((anchors, pad_zeros), dim=-1)
                 anchors_list[idx] = new_anchors
 
@@ -93,10 +93,7 @@ class AnchorHeadTemplate(nn.Module):
         Returns:
 
         """
-        targets_dict = self.target_assigner.assign_targets(
-            self.anchors, gt_boxes
-        )
-        return targets_dict
+        return self.target_assigner.assign_targets(self.anchors, gt_boxes)
 
     def get_cls_layer_loss(self):
         cls_preds = self.forward_ret_dict['cls_preds']
@@ -181,9 +178,14 @@ class AnchorHeadTemplate(nn.Module):
         else:
             anchors = self.anchors
         anchors = anchors.view(1, -1, anchors.shape[-1]).repeat(batch_size, 1, 1)
-        box_preds = box_preds.view(batch_size, -1,
-                                   box_preds.shape[-1] // self.num_anchors_per_location if not self.use_multihead else
-                                   box_preds.shape[-1])
+        box_preds = box_preds.view(
+            batch_size,
+            -1,
+            box_preds.shape[-1]
+            if self.use_multihead
+            else box_preds.shape[-1] // self.num_anchors_per_location,
+        )
+
         # sin(a - b) = sinacosb-cosasinb
         box_preds_sin, reg_targets_sin = self.add_sin_difference(box_preds, box_reg_targets)
         loc_loss_src = self.reg_loss_func(box_preds_sin, reg_targets_sin, weights=reg_weights)  # [N, M]
@@ -245,17 +247,29 @@ class AnchorHeadTemplate(nn.Module):
             anchors = self.anchors
         num_anchors = anchors.view(-1, anchors.shape[-1]).shape[0]
         batch_anchors = anchors.view(1, -1, anchors.shape[-1]).repeat(batch_size, 1, 1)
-        batch_cls_preds = cls_preds.view(batch_size, num_anchors, -1).float() \
-            if not isinstance(cls_preds, list) else cls_preds
-        batch_box_preds = box_preds.view(batch_size, num_anchors, -1) if not isinstance(box_preds, list) \
-            else torch.cat(box_preds, dim=1).view(batch_size, num_anchors, -1)
+        batch_cls_preds = (
+            cls_preds
+            if isinstance(cls_preds, list)
+            else cls_preds.view(batch_size, num_anchors, -1).float()
+        )
+
+        batch_box_preds = (
+            torch.cat(box_preds, dim=1).view(batch_size, num_anchors, -1)
+            if isinstance(box_preds, list)
+            else box_preds.view(batch_size, num_anchors, -1)
+        )
+
         batch_box_preds = self.box_coder.decode_torch(batch_box_preds, batch_anchors)
 
         if dir_cls_preds is not None:
             dir_offset = self.model_cfg.DIR_OFFSET
             dir_limit_offset = self.model_cfg.DIR_LIMIT_OFFSET
-            dir_cls_preds = dir_cls_preds.view(batch_size, num_anchors, -1) if not isinstance(dir_cls_preds, list) \
-                else torch.cat(dir_cls_preds, dim=1).view(batch_size, num_anchors, -1)
+            dir_cls_preds = (
+                torch.cat(dir_cls_preds, dim=1).view(batch_size, num_anchors, -1)
+                if isinstance(dir_cls_preds, list)
+                else dir_cls_preds.view(batch_size, num_anchors, -1)
+            )
+
             dir_labels = torch.max(dir_cls_preds, dim=-1)[1]
 
             period = (2 * np.pi / self.model_cfg.NUM_DIR_BINS)
