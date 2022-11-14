@@ -43,9 +43,10 @@ class Detector3DTemplate(nn.Module):
             'depth_downsample_factor': self.dataset.depth_downsample_factor
         }
         for module_name in self.module_topology:
-            module, model_info_dict = getattr(self, 'build_%s' % module_name)(
+            module, model_info_dict = getattr(self, f'build_{module_name}')(
                 model_info_dict=model_info_dict
             )
+
             self.add_module(module_name, module)
         return model_info_dict['module_list']
 
@@ -128,13 +129,16 @@ class Detector3DTemplate(nn.Module):
         dense_head_module = dense_heads.__all__[self.model_cfg.DENSE_HEAD.NAME](
             model_cfg=self.model_cfg.DENSE_HEAD,
             input_channels=model_info_dict['num_bev_features'],
-            num_class=self.num_class if not self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC else 1,
+            num_class=1
+            if self.model_cfg.DENSE_HEAD.CLASS_AGNOSTIC
+            else self.num_class,
             class_names=self.class_names,
             grid_size=model_info_dict['grid_size'],
             point_cloud_range=model_info_dict['point_cloud_range'],
             predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False),
-            voxel_size=model_info_dict.get('voxel_size', False)
+            voxel_size=model_info_dict.get('voxel_size', False),
         )
+
         model_info_dict['module_list'].append(dense_head_module)
         return dense_head_module, model_info_dict
 
@@ -150,9 +154,12 @@ class Detector3DTemplate(nn.Module):
         point_head_module = dense_heads.__all__[self.model_cfg.POINT_HEAD.NAME](
             model_cfg=self.model_cfg.POINT_HEAD,
             input_channels=num_point_features,
-            num_class=self.num_class if not self.model_cfg.POINT_HEAD.CLASS_AGNOSTIC else 1,
-            predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False)
+            num_class=1
+            if self.model_cfg.POINT_HEAD.CLASS_AGNOSTIC
+            else self.num_class,
+            predict_boxes_when_training=self.model_cfg.get('ROI_HEAD', False),
         )
+
 
         model_info_dict['module_list'].append(point_head_module)
         return point_head_module, model_info_dict
@@ -166,8 +173,11 @@ class Detector3DTemplate(nn.Module):
             backbone_channels=model_info_dict['backbone_channels'],
             point_cloud_range=model_info_dict['point_cloud_range'],
             voxel_size=model_info_dict['voxel_size'],
-            num_class=self.num_class if not self.model_cfg.ROI_HEAD.CLASS_AGNOSTIC else 1,
+            num_class=1
+            if self.model_cfg.ROI_HEAD.CLASS_AGNOSTIC
+            else self.num_class,
         )
+
 
         model_info_dict['module_list'].append(point_head_module)
         return point_head_module, model_info_dict
@@ -294,8 +304,8 @@ class Detector3DTemplate(nn.Module):
         if recall_dict.__len__() == 0:
             recall_dict = {'gt': 0}
             for cur_thresh in thresh_list:
-                recall_dict['roi_%s' % (str(cur_thresh))] = 0
-                recall_dict['rcnn_%s' % (str(cur_thresh))] = 0
+                recall_dict[f'roi_{str(cur_thresh)}'] = 0
+                recall_dict[f'rcnn_{str(cur_thresh)}'] = 0
 
         cur_gt = gt_boxes
         k = cur_gt.__len__() - 1
@@ -314,13 +324,13 @@ class Detector3DTemplate(nn.Module):
 
             for cur_thresh in thresh_list:
                 if iou3d_rcnn.shape[0] == 0:
-                    recall_dict['rcnn_%s' % str(cur_thresh)] += 0
+                    recall_dict[f'rcnn_{str(cur_thresh)}'] += 0
                 else:
                     rcnn_recalled = (iou3d_rcnn.max(dim=0)[0] > cur_thresh).sum().item()
-                    recall_dict['rcnn_%s' % str(cur_thresh)] += rcnn_recalled
+                    recall_dict[f'rcnn_{str(cur_thresh)}'] += rcnn_recalled
                 if rois is not None:
                     roi_recalled = (iou3d_roi.max(dim=0)[0] > cur_thresh).sum().item()
-                    recall_dict['roi_%s' % str(cur_thresh)] += roi_recalled
+                    recall_dict[f'roi_{str(cur_thresh)}'] += roi_recalled
 
             recall_dict['gt'] += cur_gt.shape[0]
         else:
@@ -362,20 +372,23 @@ class Detector3DTemplate(nn.Module):
         if not os.path.isfile(filename):
             raise FileNotFoundError
 
-        logger.info('==> Loading parameters from checkpoint %s to %s' % (filename, 'CPU' if to_cpu else 'GPU'))
+        logger.info(
+            f"==> Loading parameters from checkpoint {filename} to {'CPU' if to_cpu else 'GPU'}"
+        )
+
         loc_type = torch.device('cpu') if to_cpu else None
         checkpoint = torch.load(filename, map_location=loc_type)
         model_state_disk = checkpoint['model_state']
 
         version = checkpoint.get("version", None)
         if version is not None:
-            logger.info('==> Checkpoint trained from version: %s' % version)
+            logger.info(f'==> Checkpoint trained from version: {version}')
 
         state_dict, update_model_state = self._load_state_dict(model_state_disk, strict=False)
 
         for key in state_dict:
             if key not in update_model_state:
-                logger.info('Not updated weight %s: %s' % (key, str(state_dict[key].shape)))
+                logger.info(f'Not updated weight {key}: {str(state_dict[key].shape)}')
 
         logger.info('==> Done (loaded %d/%d)' % (len(update_model_state), len(state_dict)))
 
@@ -383,7 +396,10 @@ class Detector3DTemplate(nn.Module):
         if not os.path.isfile(filename):
             raise FileNotFoundError
 
-        logger.info('==> Loading parameters from checkpoint %s to %s' % (filename, 'CPU' if to_cpu else 'GPU'))
+        logger.info(
+            f"==> Loading parameters from checkpoint {filename} to {'CPU' if to_cpu else 'GPU'}"
+        )
+
         loc_type = torch.device('cpu') if to_cpu else None
         checkpoint = torch.load(filename, map_location=loc_type)
         epoch = checkpoint.get('epoch', -1)
@@ -393,19 +409,21 @@ class Detector3DTemplate(nn.Module):
 
         if optimizer is not None:
             if 'optimizer_state' in checkpoint and checkpoint['optimizer_state'] is not None:
-                logger.info('==> Loading optimizer parameters from checkpoint %s to %s'
-                            % (filename, 'CPU' if to_cpu else 'GPU'))
+                logger.info(
+                    f"==> Loading optimizer parameters from checkpoint {filename} to {'CPU' if to_cpu else 'GPU'}"
+                )
+
                 optimizer.load_state_dict(checkpoint['optimizer_state'])
             else:
                 assert filename[-4] == '.', filename
                 src_file, ext = filename[:-4], filename[-3:]
-                optimizer_filename = '%s_optim.%s' % (src_file, ext)
+                optimizer_filename = f'{src_file}_optim.{ext}'
                 if os.path.exists(optimizer_filename):
                     optimizer_ckpt = torch.load(optimizer_filename, map_location=loc_type)
                     optimizer.load_state_dict(optimizer_ckpt['optimizer_state'])
 
         if 'version' in checkpoint:
-            print('==> Checkpoint trained from version: %s' % checkpoint['version'])
+            print(f"==> Checkpoint trained from version: {checkpoint['version']}")
         logger.info('==> Done')
 
         return it, epoch

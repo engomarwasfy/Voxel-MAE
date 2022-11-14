@@ -157,7 +157,10 @@ class PointnetFPModule(nn.Module):
 
             interpolated_feats = pointnet2_utils.three_interpolate(known_feats, idx, weight)
         else:
-            interpolated_feats = known_feats.expand(*known_feats.size()[0:2], unknown.size(1))
+            interpolated_feats = known_feats.expand(
+                *known_feats.size()[:2], unknown.size(1)
+            )
+
 
         if unknow_feats is not None:
             new_features = torch.cat([interpolated_feats, unknow_feats], dim=1)  # (B, C2 + C1, n)
@@ -170,5 +173,3 @@ class PointnetFPModule(nn.Module):
         return new_features.squeeze(-1)
 
 
-if __name__ == "__main__":
-    pass

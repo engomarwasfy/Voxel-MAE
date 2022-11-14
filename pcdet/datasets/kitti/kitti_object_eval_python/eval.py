@@ -14,10 +14,7 @@ def get_thresholds(scores: np.ndarray, num_gt, num_sample_pts=41):
     thresholds = []
     for i, score in enumerate(scores):
         l_recall = (i + 1) / num_gt
-        if i < (len(scores) - 1):
-            r_recall = (i + 2) / num_gt
-        else:
-            r_recall = l_recall
+        r_recall = (i + 2) / num_gt if i < (len(scores) - 1) else l_recall
         if (((r_recall - current_recall) < (current_recall - l_recall))
                 and (i < (len(scores) - 1))):
             continue
@@ -68,10 +65,7 @@ def clean_data(gt_anno, dt_anno, current_class, difficulty):
         if gt_anno["name"][i] == "DontCare":
             dc_bboxes.append(gt_anno["bbox"][i])
     for i in range(num_dt):
-        if (dt_anno["name"][i].lower() == current_cls_name):
-            valid_class = 1
-        else:
-            valid_class = -1
+        valid_class = 1 if (dt_anno["name"][i].lower() == current_cls_name) else -1
         height = abs(dt_anno["bbox"][i, 3] - dt_anno["bbox"][i, 1])
         if height < MIN_HEIGHT[difficulty]:
             ignored_dt.append(1)
@@ -114,8 +108,7 @@ def image_box_overlap(boxes, query_boxes, criterion=-1):
 
 
 def bev_box_overlap(boxes, qboxes, criterion=-1):
-    riou = rotate_iou_gpu_eval(boxes, qboxes, criterion)
-    return riou
+    return rotate_iou_gpu_eval(boxes, qboxes, criterion)
 
 
 @numba.jit(nopython=True, parallel=True)
@@ -252,7 +245,7 @@ def compute_statistics_jit(overlaps,
                 for j in range(det_size):
                     if (assigned_detection[j]):
                         continue
-                    if (ignored_det[j] == -1 or ignored_det[j] == 1):
+                    if ignored_det[j] in [-1, 1]:
                         continue
                     if (ignored_threshold[j]):
                         continue
@@ -268,10 +261,7 @@ def compute_statistics_jit(overlaps,
                 # tmp.append((1.0 + np.cos(delta[i])) / 2.0)
             # assert len(tmp) == fp + tp
             # assert len(delta) == tp
-            if tp > 0 or fp > 0:
-                similarity = np.sum(tmp)
-            else:
-                similarity = -1
+            similarity = np.sum(tmp) if tp > 0 or fp > 0 else -1
     return tp, fp, fn, similarity, thresholds[:thresh_idx]
 
 

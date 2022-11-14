@@ -27,10 +27,10 @@ class VoxelRCNNHead(RoIHeadTemplate):
                 mlps=mlps,
                 pool_method=LAYER_cfg[src_name].POOL_METHOD,
             )
-            
+
             self.roi_grid_pool_layers.append(pool_layer)
 
-            c_out += sum([x[-1] for x in mlps])
+            c_out += sum(x[-1] for x in mlps)
 
 
         GRID_SIZE = self.model_cfg.ROI_GRID_POOL.GRID_SIZE
@@ -38,7 +38,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
         pre_channel = GRID_SIZE * GRID_SIZE * GRID_SIZE * c_out
 
         shared_fc_list = []
-        for k in range(0, self.model_cfg.SHARED_FC.__len__()):
+        for k in range(self.model_cfg.SHARED_FC.__len__()):
             shared_fc_list.extend([
                 nn.Linear(pre_channel, self.model_cfg.SHARED_FC[k], bias=False),
                 nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
@@ -51,7 +51,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
         self.shared_fc_layer = nn.Sequential(*shared_fc_list)
 
         cls_fc_list = []
-        for k in range(0, self.model_cfg.CLS_FC.__len__()):
+        for k in range(self.model_cfg.CLS_FC.__len__()):
             cls_fc_list.extend([
                 nn.Linear(pre_channel, self.model_cfg.CLS_FC[k], bias=False),
                 nn.BatchNorm1d(self.model_cfg.CLS_FC[k]),
@@ -65,7 +65,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
         self.cls_pred_layer = nn.Linear(pre_channel, self.num_class, bias=True)
 
         reg_fc_list = []
-        for k in range(0, self.model_cfg.REG_FC.__len__()):
+        for k in range(self.model_cfg.REG_FC.__len__()):
             reg_fc_list.extend([
                 nn.Linear(pre_channel, self.model_cfg.REG_FC[k], bias=False),
                 nn.BatchNorm1d(self.model_cfg.REG_FC[k]),
@@ -119,7 +119,7 @@ class VoxelRCNNHead(RoIHeadTemplate):
         rois = batch_dict['rois']
         batch_size = batch_dict['batch_size']
         with_vf_transform = batch_dict.get('with_voxel_feature_transform', False)
-        
+
         roi_grid_xyz, _ = self.get_global_grid_points_of_roi(
             rois, grid_size=self.pool_cfg.GRID_SIZE
         )  # (BxN, 6x6x6, 3)
@@ -185,10 +185,8 @@ class VoxelRCNNHead(RoIHeadTemplate):
                 pooled_features.shape[-1]
             )  # (BxN, 6x6x6, C)
             pooled_features_list.append(pooled_features)
-        
-        ms_pooled_features = torch.cat(pooled_features_list, dim=-1)
-        
-        return ms_pooled_features
+
+        return torch.cat(pooled_features_list, dim=-1)
 
 
     def get_global_grid_points_of_roi(self, rois, grid_size):
@@ -210,9 +208,9 @@ class VoxelRCNNHead(RoIHeadTemplate):
         dense_idx = dense_idx.repeat(batch_size_rcnn, 1, 1).float()  # (B, 6x6x6, 3)
 
         local_roi_size = rois.view(batch_size_rcnn, -1)[:, 3:6]
-        roi_grid_points = (dense_idx + 0.5) / grid_size * local_roi_size.unsqueeze(dim=1) \
-                          - (local_roi_size.unsqueeze(dim=1) / 2)  # (B, 6x6x6, 3)
-        return roi_grid_points
+        return (dense_idx + 0.5) / grid_size * local_roi_size.unsqueeze(dim=1) - (
+            local_roi_size.unsqueeze(dim=1) / 2
+        )
 
     def forward(self, batch_dict):
         """

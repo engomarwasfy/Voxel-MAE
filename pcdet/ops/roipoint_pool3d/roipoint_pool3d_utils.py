@@ -63,5 +63,3 @@ class RoIPointPool3dFunction(Function):
         raise NotImplementedError
 
 
-if __name__ == '__main__':
-    pass

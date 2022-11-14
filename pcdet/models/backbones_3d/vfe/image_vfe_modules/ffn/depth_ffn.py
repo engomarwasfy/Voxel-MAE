@@ -87,9 +87,7 @@ class DepthFFN(nn.Module):
         depth_probs = F.softmax(depth_logits, dim=depth_dim)
         depth_probs = depth_probs[:, :, :-1]
 
-        # Multiply to form image depth feature volume
-        frustum_features = depth_probs * image_features
-        return frustum_features
+        return depth_probs * image_features
 
     def get_loss(self):
         """

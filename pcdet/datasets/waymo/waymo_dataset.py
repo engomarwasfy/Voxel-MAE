@@ -25,7 +25,7 @@ class WaymoDataset(DatasetTemplate):
         )
         self.data_path = self.root_path / self.dataset_cfg.PROCESSED_DATA_TAG
         self.split = self.dataset_cfg.DATA_SPLIT[self.mode]
-        split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
+        split_dir = self.root_path / 'ImageSets' / f'{self.split}.txt'
         self.sample_sequence_list = [x.strip() for x in open(split_dir).readlines()]
 
         self.infos = []
@@ -42,7 +42,7 @@ class WaymoDataset(DatasetTemplate):
             root_path=self.root_path, logger=self.logger
         )
         self.split = split
-        split_dir = self.root_path / 'ImageSets' / (self.split + '.txt')
+        split_dir = self.root_path / 'ImageSets' / f'{self.split}.txt'
         self.sample_sequence_list = [x.strip() for x in open(split_dir).readlines()]
         self.infos = []
         self.include_waymo_data(self.mode)
@@ -54,7 +54,7 @@ class WaymoDataset(DatasetTemplate):
         num_skipped_infos = 0
         for k in range(len(self.sample_sequence_list)):
             sequence_name = os.path.splitext(self.sample_sequence_list[k])[0]
-            info_path = self.data_path / sequence_name / ('%s.pkl' % sequence_name)
+            info_path = self.data_path / sequence_name / f'{sequence_name}.pkl'
             info_path = self.check_sequence_name_with_all_version(info_path)
             if not info_path.exists():
                 num_skipped_infos += 1
@@ -64,13 +64,17 @@ class WaymoDataset(DatasetTemplate):
                 waymo_infos.extend(infos)
 
         self.infos.extend(waymo_infos[:])
-        self.logger.info('Total skipped info %s' % num_skipped_infos)
+        self.logger.info(f'Total skipped info {num_skipped_infos}')
         self.logger.info('Total samples for Waymo dataset: %d' % (len(waymo_infos)))
 
         if self.dataset_cfg.SAMPLED_INTERVAL[mode] > 1:
-            sampled_waymo_infos = []
-            for k in range(0, len(self.infos), self.dataset_cfg.SAMPLED_INTERVAL[mode]):
-                sampled_waymo_infos.append(self.infos[k])
+            sampled_waymo_infos = [
+                self.infos[k]
+                for k in range(
+                    0, len(self.infos), self.dataset_cfg.SAMPLED_INTERVAL[mode]
+                )
+            ]
+
             self.infos = sampled_waymo_infos
             self.logger.info('Total sampled samples for Waymo dataset: %d' % len(self.infos))
 
@@ -79,7 +83,7 @@ class WaymoDataset(DatasetTemplate):
 
         cur_rank, num_gpus = common_utils.get_dist_info()
         all_infos = self.infos[:self.shared_memory_file_limit] \
-            if self.shared_memory_file_limit < len(self.infos) else self.infos
+                if self.shared_memory_file_limit < len(self.infos) else self.infos
         cur_infos = all_infos[cur_rank::num_gpus]
         for info in cur_infos:
             pc_info = info['point_cloud']
@@ -101,7 +105,7 @@ class WaymoDataset(DatasetTemplate):
 
         cur_rank, num_gpus = common_utils.get_dist_info()
         all_infos = self.infos[:self.shared_memory_file_limit] \
-            if self.shared_memory_file_limit < len(self.infos) else self.infos
+                if self.shared_memory_file_limit < len(self.infos) else self.infos
         cur_infos = all_infos[cur_rank::num_gpus]
         for info in cur_infos:
             pc_info = info['point_cloud']
@@ -124,7 +128,12 @@ class WaymoDataset(DatasetTemplate):
             found_sequence_file = sequence_file
             for pre_text in ['training', 'validation', 'testing']:
                 if not sequence_file.exists():
-                    temp_sequence_file = Path(str(sequence_file).replace('segment', pre_text + '_segment'))
+                    temp_sequence_file = Path(
+                        str(sequence_file).replace(
+                            'segment', f'{pre_text}_segment'
+                        )
+                    )
+
                     if temp_sequence_file.exists():
                         found_sequence_file = temp_sequence_file
                         break
@@ -153,8 +162,7 @@ class WaymoDataset(DatasetTemplate):
             sequence_infos = list(tqdm(p.imap(process_single_sequence, sample_sequence_file_list),
                                        total=len(sample_sequence_file_list)))
 
-        all_sequences_infos = [item for infos in sequence_infos for item in infos]
-        return all_sequences_infos
+        return [item for infos in sequence_infos for item in infos]
 
     def get_lidar(self, sequence_name, sample_idx):
         lidar_file = self.data_path / sequence_name / ('%04d.npy' % sample_idx)
@@ -207,11 +215,12 @@ class WaymoDataset(DatasetTemplate):
                 gt_boxes_lidar = gt_boxes_lidar[mask]
                 annos['num_points_in_gt'] = annos['num_points_in_gt'][mask]
 
-            input_dict.update({
+            input_dict |= {
                 'gt_names': annos['name'],
                 'gt_boxes': gt_boxes_lidar,
-                'num_points_in_gt': annos.get('num_points_in_gt', None)
-            })
+                'num_points_in_gt': annos.get('num_points_in_gt', None),
+            }
+
 
         data_dict = self.prepare_data(data_dict=input_dict)
         data_dict['metadata'] = info.get('metadata', info['frame_id'])
@@ -409,8 +418,8 @@ def create_waymo_infos(dataset_cfg, class_names, data_path, save_path,
     )
     train_split, val_split = 'train', 'val'
 
-    train_filename = save_path / ('%s_infos_%s.pkl' % (processed_data_tag, train_split))
-    val_filename = save_path / ('%s_infos_%s.pkl' % (processed_data_tag, val_split))
+    train_filename = save_path / f'{processed_data_tag}_infos_{train_split}.pkl'
+    val_filename = save_path / f'{processed_data_tag}_infos_{val_split}.pkl'
 
     os.environ["CUDA_VISIBLE_DEVICES"] = "-1"
     print('---------------Start to generate data infos---------------')
@@ -423,7 +432,10 @@ def create_waymo_infos(dataset_cfg, class_names, data_path, save_path,
     )
     with open(train_filename, 'wb') as f:
         pickle.dump(waymo_infos_train, f)
-    print('----------------Waymo info train file is saved to %s----------------' % train_filename)
+    print(
+        f'----------------Waymo info train file is saved to {train_filename}----------------'
+    )
+
 
     dataset.set_split(val_split)
     waymo_infos_val = dataset.get_infos(
@@ -433,7 +445,10 @@ def create_waymo_infos(dataset_cfg, class_names, data_path, save_path,
     )
     with open(val_filename, 'wb') as f:
         pickle.dump(waymo_infos_val, f)
-    print('----------------Waymo info val file is saved to %s----------------' % val_filename)
+    print(
+        f'----------------Waymo info val file is saved to {val_filename}----------------'
+    )
+
 
     print('---------------Start create groundtruth database for data augmentation---------------')
     os.environ["CUDA_VISIBLE_DEVICES"] = "0"

@@ -47,10 +47,16 @@ class AnchorGenerator(object):
             ])  # [x_grid, y_grid, z_grid]
             anchors = torch.stack((x_shifts, y_shifts, z_shifts), dim=-1)  # [x, y, z, 3]
             anchors = anchors[:, :, :, None, :].repeat(1, 1, 1, anchor_size.shape[0], 1)
-            anchor_size = anchor_size.view(1, 1, 1, -1, 3).repeat([*anchors.shape[0:3], 1, 1])
+            anchor_size = anchor_size.view(1, 1, 1, -1, 3).repeat(
+                [*anchors.shape[:3], 1, 1]
+            )
+
             anchors = torch.cat((anchors, anchor_size), dim=-1)
             anchors = anchors[:, :, :, :, None, :].repeat(1, 1, 1, 1, num_anchor_rotation, 1)
-            anchor_rotation = anchor_rotation.view(1, 1, 1, 1, -1, 1).repeat([*anchors.shape[0:3], num_anchor_size, 1, 1])
+            anchor_rotation = anchor_rotation.view(1, 1, 1, 1, -1, 1).repeat(
+                [*anchors.shape[:3], num_anchor_size, 1, 1]
+            )
+
             anchors = torch.cat((anchors, anchor_rotation), dim=-1)  # [x, y, z, num_size, num_rot, 7]
 
             anchors = anchors.permute(2, 1, 0, 3, 4, 5).contiguous()

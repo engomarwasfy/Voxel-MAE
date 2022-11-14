@@ -65,15 +65,15 @@ class PointRCNNHead(RoIHeadTemplate):
     def init_weights(self, weight_init='xavier'):
         if weight_init == 'kaiming':
             init_func = nn.init.kaiming_normal_
-        elif weight_init == 'xavier':
-            init_func = nn.init.xavier_normal_
         elif weight_init == 'normal':
             init_func = nn.init.normal_
+        elif weight_init == 'xavier':
+            init_func = nn.init.xavier_normal_
         else:
             raise NotImplementedError
 
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d):
+            if isinstance(m, (nn.Conv2d, nn.Conv1d)):
                 if weight_init == 'normal':
                     init_func(m.weight, mean=0, std=0.001)
                 else:

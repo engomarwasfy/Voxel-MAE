@@ -16,7 +16,7 @@ class SECONDHead(RoIHeadTemplate):
         pre_channel = self.model_cfg.ROI_GRID_POOL.IN_CHANNEL * GRID_SIZE * GRID_SIZE
 
         shared_fc_list = []
-        for k in range(0, self.model_cfg.SHARED_FC.__len__()):
+        for k in range(self.model_cfg.SHARED_FC.__len__()):
             shared_fc_list.extend([
                 nn.Conv1d(pre_channel, self.model_cfg.SHARED_FC[k], kernel_size=1, bias=False),
                 nn.BatchNorm1d(self.model_cfg.SHARED_FC[k]),
@@ -44,15 +44,15 @@ class SECONDHead(RoIHeadTemplate):
     def init_weights(self, weight_init='xavier'):
         if weight_init == 'kaiming':
             init_func = nn.init.kaiming_normal_
-        elif weight_init == 'xavier':
-            init_func = nn.init.xavier_normal_
         elif weight_init == 'normal':
             init_func = nn.init.normal_
+        elif weight_init == 'xavier':
+            init_func = nn.init.xavier_normal_
         else:
             raise NotImplementedError
 
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d):
+            if isinstance(m, (nn.Conv2d, nn.Conv1d)):
                 if weight_init == 'normal':
                     init_func(m.weight, mean=0, std=0.001)
                 else:
@@ -172,11 +172,11 @@ class SECONDHead(RoIHeadTemplate):
             )
         elif loss_cfgs.IOU_LOSS == 'L2':
             batch_loss_iou = nn.functional.mse_loss(rcnn_iou_flat, rcnn_iou_labels, reduction='none')
+        elif loss_cfgs.IOU_LOSS == 'focalbce':
+            batch_loss_iou = loss_utils.sigmoid_focal_cls_loss(rcnn_iou_flat, rcnn_iou_labels)
         elif loss_cfgs.IOU_LOSS == 'smoothL1':
             diff = rcnn_iou_flat - rcnn_iou_labels
             batch_loss_iou = loss_utils.WeightedSmoothL1Loss.smooth_l1_loss(diff, 1.0 / 9.0)
-        elif loss_cfgs.IOU_LOSS == 'focalbce':
-            batch_loss_iou = loss_utils.sigmoid_focal_cls_loss(rcnn_iou_flat, rcnn_iou_labels)
         else:
             raise NotImplementedError
 

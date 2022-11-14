@@ -107,5 +107,3 @@ class RoIAwarePool3dFunction(Function):
         return None, None, grad_in, None, None, None
 
 
-if __name__ == '__main__':
-    pass

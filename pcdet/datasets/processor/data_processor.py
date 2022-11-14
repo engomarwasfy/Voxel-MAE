@@ -46,11 +46,14 @@ class VoxelGeneratorWrapper():
             voxel_output = self._voxel_generator.generate(points)
             if isinstance(voxel_output, dict):
                 voxels, coordinates, num_points = \
-                    voxel_output['voxels'], voxel_output['coordinates'], voxel_output['num_points_per_voxel']
+                        voxel_output['voxels'], voxel_output['coordinates'], voxel_output['num_points_per_voxel']
             else:
                 voxels, coordinates, num_points = voxel_output
         else:
-            assert tv is not None, f"Unexpected error, library: 'cumm' wasn't imported properly."
+            assert (
+                tv is not None
+            ), "Unexpected error, library: 'cumm' wasn't imported properly."
+
             voxel_output = self._voxel_generator.point_to_voxel(tv.from_numpy(points))
             tv_voxels, tv_coordinates, tv_num_points = voxel_output
             # make copy with numpy(), since numpy_view() will disappear as soon as the generator is deleted
@@ -105,16 +108,22 @@ class DataProcessor(object):
     def transform_points_to_voxels_placeholder(self, data_dict=None, config=None):
         # just calculate grid size
         if data_dict is None:
-            grid_size = (self.point_cloud_range[3:6] - self.point_cloud_range[0:3]) / np.array(config.VOXEL_SIZE)
+            grid_size = (
+                self.point_cloud_range[3:6] - self.point_cloud_range[:3]
+            ) / np.array(config.VOXEL_SIZE)
+
             self.grid_size = np.round(grid_size).astype(np.int64)
             self.voxel_size = config.VOXEL_SIZE
             return partial(self.transform_points_to_voxels_placeholder, config=config)
-        
+
         return data_dict
         
     def transform_points_to_voxels(self, data_dict=None, config=None):
         if data_dict is None:
-            grid_size = (self.point_cloud_range[3:6] - self.point_cloud_range[0:3]) / np.array(config.VOXEL_SIZE)
+            grid_size = (
+                self.point_cloud_range[3:6] - self.point_cloud_range[:3]
+            ) / np.array(config.VOXEL_SIZE)
+
             self.grid_size = np.round(grid_size).astype(np.int64)
             self.voxel_size = config.VOXEL_SIZE
             # just bind the config, we will create the VoxelGeneratorWrapper later,
@@ -160,23 +169,25 @@ class DataProcessor(object):
             if num_points > len(far_idxs_choice):
                 near_idxs_choice = np.random.choice(near_idxs, num_points - len(far_idxs_choice), replace=False)
                 choice = np.concatenate((near_idxs_choice, far_idxs_choice), axis=0) \
-                    if len(far_idxs_choice) > 0 else near_idxs_choice
+                        if len(far_idxs_choice) > 0 else near_idxs_choice
             else: 
                 choice = np.arange(0, len(points), dtype=np.int32)
                 choice = np.random.choice(choice, num_points, replace=False)
-            np.random.shuffle(choice)
         else:
             choice = np.arange(0, len(points), dtype=np.int32)
             if num_points > len(points):
                 extra_choice = np.random.choice(choice, num_points - len(points), replace=False)
                 choice = np.concatenate((choice, extra_choice), axis=0)
-            np.random.shuffle(choice)
+        np.random.shuffle(choice)
         data_dict['points'] = points[choice]
         return data_dict
 
     def calculate_grid_size(self, data_dict=None, config=None):
         if data_dict is None:
-            grid_size = (self.point_cloud_range[3:6] - self.point_cloud_range[0:3]) / np.array(config.VOXEL_SIZE)
+            grid_size = (
+                self.point_cloud_range[3:6] - self.point_cloud_range[:3]
+            ) / np.array(config.VOXEL_SIZE)
+
             self.grid_size = np.round(grid_size).astype(np.int64)
             self.voxel_size = config.VOXEL_SIZE
             return partial(self.calculate_grid_size, config=config)

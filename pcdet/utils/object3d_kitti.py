@@ -4,15 +4,12 @@ import numpy as np
 def get_objects_from_label(label_file):
     with open(label_file, 'r') as f:
         lines = f.readlines()
-    objects = [Object3d(line) for line in lines]
-    return objects
+    return [Object3d(line) for line in lines]
 
 
 def cls_type_to_id(cls_type):
     type_to_id = {'Car': 1, 'Pedestrian': 2, 'Cyclist': 3, 'Van': 4}
-    if cls_type not in type_to_id.keys():
-        return -1
-    return type_to_id[cls_type]
+    return -1 if cls_type not in type_to_id.keys() else type_to_id[cls_type]
 
 
 class Object3d(object):
@@ -70,14 +67,40 @@ class Object3d(object):
         return corners3d
 
     def to_str(self):
-        print_str = '%s %.3f %.3f %.3f box2d: %s hwl: [%.3f %.3f %.3f] pos: %s ry: %.3f' \
-                     % (self.cls_type, self.truncation, self.occlusion, self.alpha, self.box2d, self.h, self.w, self.l,
-                        self.loc, self.ry)
-        return print_str
+        return (
+            '%s %.3f %.3f %.3f box2d: %s hwl: [%.3f %.3f %.3f] pos: %s ry: %.3f'
+            % (
+                self.cls_type,
+                self.truncation,
+                self.occlusion,
+                self.alpha,
+                self.box2d,
+                self.h,
+                self.w,
+                self.l,
+                self.loc,
+                self.ry,
+            )
+        )
 
     def to_kitti_format(self):
-        kitti_str = '%s %.2f %d %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f' \
-                    % (self.cls_type, self.truncation, int(self.occlusion), self.alpha, self.box2d[0], self.box2d[1],
-                       self.box2d[2], self.box2d[3], self.h, self.w, self.l, self.loc[0], self.loc[1], self.loc[2],
-                       self.ry)
-        return kitti_str
+        return (
+            '%s %.2f %d %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f %.2f'
+            % (
+                self.cls_type,
+                self.truncation,
+                int(self.occlusion),
+                self.alpha,
+                self.box2d[0],
+                self.box2d[1],
+                self.box2d[2],
+                self.box2d[3],
+                self.h,
+                self.w,
+                self.l,
+                self.loc[0],
+                self.loc[1],
+                self.loc[2],
+                self.ry,
+            )
+        )

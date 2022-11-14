@@ -17,7 +17,7 @@ def build_local_aggregation_module(input_channels, config):
         cur_layer = StackSAModuleMSG(
             radii=config.POOL_RADIUS, nsamples=config.NSAMPLE, mlps=mlps, use_xyz=True, pool_method='max_pool',
         )
-        num_c_out = sum([x[-1] for x in mlps])
+        num_c_out = sum(x[-1] for x in mlps)
     elif local_aggregation_name == 'VectorPoolAggregationModuleMSG':
         cur_layer = VectorPoolAggregationModuleMSG(input_channels=input_channels, config=config)
         num_c_out = config.MSG_POST_MLPS[-1]
@@ -298,20 +298,16 @@ class VectorPoolAggregationModule(nn.Module):
 
     def init_weights(self):
         for m in self.modules():
-            if isinstance(m, nn.Conv2d) or isinstance(m, nn.Conv1d):
+            if isinstance(m, (nn.Conv2d, nn.Conv1d)):
                 nn.init.kaiming_normal_(m.weight)
                 if m.bias is not None:
                     nn.init.constant_(m.bias, 0)
-            if isinstance(m, nn.BatchNorm2d) or isinstance(m, nn.BatchNorm1d):
+            if isinstance(m, (nn.BatchNorm2d, nn.BatchNorm1d)):
                 nn.init.constant_(m.weight, 1.0)
                 nn.init.constant_(m.bias, 0)
 
     def extra_repr(self) -> str:
-        ret = f'radius={self.max_neighbour_distance}, local_voxels=({self.num_local_voxel}, ' \
-              f'local_aggregation_type={self.local_aggregation_type}, ' \
-              f'num_c_reduction={self.input_channels}->{self.num_reduced_channels}, ' \
-              f'num_c_local_aggregation={self.num_channels_of_local_aggregation}'
-        return ret
+        return f'radius={self.max_neighbour_distance}, local_voxels=({self.num_local_voxel}, local_aggregation_type={self.local_aggregation_type}, num_c_reduction={self.input_channels}->{self.num_reduced_channels}, num_c_local_aggregation={self.num_channels_of_local_aggregation}'
 
     def vector_pool_with_voxel_query(self, xyz, xyz_batch_cnt, features, new_xyz, new_xyz_batch_cnt):
         use_xyz = 1
@@ -355,8 +351,7 @@ class VectorPoolAggregationModule(nn.Module):
             y_offset.contiguous().view(-1, 1),
             z_offset.contiguous().view(-1, 1)), dim=-1
         )
-        voxel_centers = point_centers[:, None, :] + xyz_offset[None, :, :]
-        return voxel_centers
+        return point_centers[:, None, :] + xyz_offset[None, :, :]
 
     def vector_pool_with_local_interpolate(self, xyz, xyz_batch_cnt, features, new_xyz, new_xyz_batch_cnt):
         """

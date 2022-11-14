@@ -18,27 +18,24 @@ from lyft_dataset_sdk.eval.detection.mAP_evaluation import Box3D
 def get_available_scenes(lyft):
     available_scenes = []
     print('total scene num:', len(lyft.scene))
+    has_more_frames = True
     for scene in lyft.scene:
         scene_token = scene['token']
         scene_rec = lyft.get('scene', scene_token)
         sample_rec = lyft.get('sample', scene_rec['first_sample_token'])
         sd_rec = lyft.get('sample_data', sample_rec['data']['LIDAR_TOP'])
-        has_more_frames = True
         scene_not_exist = False
         while has_more_frames:
             lidar_path, boxes, _ = lyft.get_sample_data(sd_rec['token'])
             if not Path(lidar_path).exists():
                 scene_not_exist = True
-                break
-            else:
-                break
-            # if not sd_rec['next'] == '':
-            #     sd_rec = nusc.get('sample_data', sd_rec['next'])
-            # else:
-            #     has_more_frames = False
-        if scene_not_exist:
-            continue
-        available_scenes.append(scene)
+            break
+                    # if not sd_rec['next'] == '':
+                    #     sd_rec = nusc.get('sample_data', sd_rec['next'])
+                    # else:
+                    #     has_more_frames = False
+        if not scene_not_exist:
+            available_scenes.append(scene)
     print('exist scene num:', len(available_scenes))
     return available_scenes
 
@@ -77,10 +74,7 @@ def quaternion_yaw(q: Quaternion) -> float:
     # Project into xy plane.
     v = np.dot(q.rotation_matrix, np.array([1, 0, 0]))
 
-    # Measure yaw using arctan.
-    yaw = np.arctan2(v[1], v[0])
-
-    return yaw
+    return np.arctan2(v[1], v[0])
 
 
 def fill_trainval_infos(data_path, lyft, train_scenes, val_scenes, test=False, max_sweeps=10):
@@ -91,10 +85,10 @@ def fill_trainval_infos(data_path, lyft, train_scenes, val_scenes, test=False, m
     # ref_chans = ["LIDAR_TOP", "LIDAR_FRONT_LEFT", "LIDAR_FRONT_RIGHT"]
     ref_chan = "LIDAR_TOP"
 
+    ref_info = {}
     for index, sample in enumerate(lyft.sample):
         progress_bar.update()
 
-        ref_info = {}
         ref_sd_token = sample["data"][ref_chan]
         ref_sd_rec = lyft.get("sample_data", ref_sd_token)
         ref_cs_token = ref_sd_rec["calibrated_sensor_token"]
@@ -145,7 +139,7 @@ def fill_trainval_infos(data_path, lyft, train_scenes, val_scenes, test=False, m
 
         while len(sweeps) < max_sweeps - 1:
             if curr_sd_rec['prev'] == '':
-                if len(sweeps) == 0:
+                if not sweeps:
                     sweep = {
                         'lidar_path': Path(ref_lidar_path).relative_to(data_path).__str__(),
                         'sample_data_token': curr_sd_rec['token'],
@@ -275,7 +269,7 @@ def convert_det_to_lyft_format(lyft, det_annos):
                 'score': box.score
             }
             det_lyft_box.append(box3d)
-    
+
     return det_lyft_box, sample_tokens
 
 
@@ -288,7 +282,7 @@ def load_lyft_gt_by_tokens(lyft, sample_tokens):
 
     # Load annotations and filter predictions and annotations.
     for sample_token in sample_tokens:
-        
+
         sample = lyft.get('sample', sample_token)
 
         sample_annotation_tokens = sample['anns']
@@ -297,13 +291,13 @@ def load_lyft_gt_by_tokens(lyft, sample_tokens):
         lidar_data = lyft.get("sample_data", sample_lidar_token)
         ego_pose = lyft.get("ego_pose", lidar_data["ego_pose_token"])
         ego_translation = np.array(ego_pose['translation'])
-        
+
         for sample_annotation_token in sample_annotation_tokens:
             sample_annotation = lyft.get('sample_annotation', sample_annotation_token)
             sample_annotation_translation = sample_annotation['translation']
-            
+
             class_name = sample_annotation['category_name']
-            
+
             box3d = {
                 'sample_token': sample_token,
                 'translation': sample_annotation_translation,
@@ -312,14 +306,14 @@ def load_lyft_gt_by_tokens(lyft, sample_tokens):
                 'name': class_name
             }
             gt_box3ds.append(box3d)
-            
+
     return gt_box3ds
 
 
 def format_lyft_results(classwise_ap, class_names, iou_threshold_list, version='trainval'):
     ret_dict = {}
     result = '----------------Lyft %s results-----------------\n' % version
-    result += 'Average precision over IoUs: {}\n'.format(str(iou_threshold_list))
+    result += f'Average precision over IoUs: {str(iou_threshold_list)}\n'
     for c_idx, class_name in enumerate(class_names):
         result += '{:<20}: \t {:.4f}\n'.format(class_name, classwise_ap[c_idx])
         ret_dict[class_name] = classwise_ap[c_idx]

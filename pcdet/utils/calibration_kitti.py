@@ -22,10 +22,11 @@ def get_calib_from_file(calib_file):
 
 class Calibration(object):
     def __init__(self, calib_file):
-        if not isinstance(calib_file, dict):
-            calib = get_calib_from_file(calib_file)
-        else:
-            calib = calib_file
+        calib = (
+            calib_file
+            if isinstance(calib_file, dict)
+            else get_calib_from_file(calib_file)
+        )
 
         self.P2 = calib['P2']  # 3 x 4
         self.R0 = calib['R0']  # 3 x 3
@@ -44,8 +45,7 @@ class Calibration(object):
         :param pts: (N, 3 or 2)
         :return pts_hom: (N, 4 or 3)
         """
-        pts_hom = np.hstack((pts, np.ones((pts.shape[0], 1), dtype=np.float32)))
-        return pts_hom
+        return np.hstack((pts, np.ones((pts.shape[0], 1), dtype=np.float32)))
 
     def rect_to_lidar(self, pts_rect):
         """
@@ -68,9 +68,7 @@ class Calibration(object):
         :return pts_rect: (N, 3)
         """
         pts_lidar_hom = self.cart_to_hom(pts_lidar)
-        pts_rect = np.dot(pts_lidar_hom, np.dot(self.V2C.T, self.R0.T))
-        # pts_rect = reduce(np.dot, (pts_lidar_hom, self.V2C.T, self.R0.T))
-        return pts_rect
+        return np.dot(pts_lidar_hom, np.dot(self.V2C.T, self.R0.T))
 
     def rect_to_img(self, pts_rect):
         """
@@ -101,8 +99,9 @@ class Calibration(object):
         """
         x = ((u - self.cu) * depth_rect) / self.fu + self.tx
         y = ((v - self.cv) * depth_rect) / self.fv + self.ty
-        pts_rect = np.concatenate((x.reshape(-1, 1), y.reshape(-1, 1), depth_rect.reshape(-1, 1)), axis=1)
-        return pts_rect
+        return np.concatenate(
+            (x.reshape(-1, 1), y.reshape(-1, 1), depth_rect.reshape(-1, 1)), axis=1
+        )
 
     def corners3d_to_img_boxes(self, corners3d):
         """

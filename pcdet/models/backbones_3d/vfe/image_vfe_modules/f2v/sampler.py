@@ -32,6 +32,9 @@ class Sampler(nn.Module):
         Returns
             output_features: (B, C, X, Y, Z) Output voxel features
         """
-        # Sample from grid
-        output = self.grid_sample(input=input_features, grid=grid, mode=self.mode, padding_mode=self.padding_mode)
-        return output
+        return self.grid_sample(
+            input=input_features,
+            grid=grid,
+            mode=self.mode,
+            padding_mode=self.padding_mode,
+        )

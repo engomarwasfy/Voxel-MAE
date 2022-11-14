@@ -177,14 +177,14 @@ class DatasetTemplate(torch_data.Dataset):
                         coors.append(coor_pad)
                     ret[key] = np.concatenate(coors, axis=0)
                 elif key in ['gt_boxes']:
-                    max_gt = max([len(x) for x in val])
+                    max_gt = max(len(x) for x in val)
                     batch_gt_boxes3d = np.zeros((batch_size, max_gt, val[0].shape[-1]), dtype=np.float32)
                     for k in range(batch_size):
                         batch_gt_boxes3d[k, :val[k].__len__(), :] = val[k]
                     ret[key] = batch_gt_boxes3d
                 elif key in ['gt_boxes2d']:
                     max_boxes = 0
-                    max_boxes = max([len(x) for x in val])
+                    max_boxes = max(len(x) for x in val)
                     batch_boxes2d = np.zeros((batch_size, max_boxes, val[0].shape[-1]), dtype=np.float32)
                     for k in range(batch_size):
                         if val[k].size > 0:
@@ -207,11 +207,11 @@ class DatasetTemplate(torch_data.Dataset):
                         # Pad with nan, to be replaced later in the pipeline.
                         pad_value = np.nan
 
-                        if key == "images":
-                            pad_width = (pad_h, pad_w, (0, 0))
-                        elif key == "depth_maps":
+                        if key == "depth_maps":
                             pad_width = (pad_h, pad_w)
 
+                        elif key == "images":
+                            pad_width = (pad_h, pad_w, (0, 0))
                         image_pad = np.pad(image,
                                            pad_width=pad_width,
                                            mode='constant',
@@ -222,7 +222,7 @@ class DatasetTemplate(torch_data.Dataset):
                 else:
                     ret[key] = np.stack(val, axis=0)
             except:
-                print('Error in collate_batch: key=%s' % key)
+                print(f'Error in collate_batch: key={key}')
                 raise TypeError
 
         ret['batch_size'] = batch_size

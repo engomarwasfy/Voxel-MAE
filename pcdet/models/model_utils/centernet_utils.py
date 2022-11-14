@@ -31,8 +31,7 @@ def gaussian_radius(height, width, min_overlap=0.5):
     c3 = (min_overlap - 1) * width * height
     sq3 = (b3 ** 2 - 4 * a3 * c3).sqrt()
     r3 = (b3 + sq3) / 2
-    ret = torch.min(torch.min(r1, r2), r3)
-    return ret
+    return torch.min(torch.min(r1, r2), r3)
 
 
 def gaussian2D(shape, sigma=1):
@@ -50,7 +49,7 @@ def draw_gaussian_to_heatmap(heatmap, center, radius, k=1, valid_mask=None):
 
     x, y = int(center[0]), int(center[1])
 
-    height, width = heatmap.shape[0:2]
+    height, width = heatmap.shape[:2]
 
     left, right = min(x, radius), min(width - x, radius + 1)
     top, bottom = min(y, radius), min(height - y, radius + 1)

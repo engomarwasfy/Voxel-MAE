@@ -11,26 +11,27 @@ class DataAugmentor(object):
         self.root_path = root_path
         self.class_names = class_names
         self.logger = logger
-        
+
         self.data_augmentor_queue = []
         aug_config_list = augmentor_configs if isinstance(augmentor_configs, list) \
-            else augmentor_configs.AUG_CONFIG_LIST
-        
+                else augmentor_configs.AUG_CONFIG_LIST
+
         for cur_cfg in aug_config_list:
-            if not isinstance(augmentor_configs, list):
-                if cur_cfg.NAME in augmentor_configs.DISABLE_AUG_LIST:
-                    continue
+            if (
+                not isinstance(augmentor_configs, list)
+                and cur_cfg.NAME in augmentor_configs.DISABLE_AUG_LIST
+            ):
+                continue
             cur_augmentor = getattr(self, cur_cfg.NAME)(config=cur_cfg)
             self.data_augmentor_queue.append(cur_augmentor)
     
     def gt_sampling(self, config=None):
-        db_sampler = database_sampler.DataBaseSampler(
+        return database_sampler.DataBaseSampler(
             root_path=self.root_path,
             sampler_cfg=config,
             class_names=self.class_names,
-            logger=self.logger
+            logger=self.logger,
         )
-        return db_sampler
     
     def __getstate__(self):
         d = dict(self.__dict__)
@@ -46,10 +47,11 @@ class DataAugmentor(object):
         gt_boxes, points = data_dict['gt_boxes'], data_dict['points']
         for cur_axis in config['ALONG_AXIS_LIST']:
             assert cur_axis in ['x', 'y']
-            gt_boxes, points = getattr(augmentor_utils, 'random_flip_along_%s' % cur_axis)(
-                gt_boxes, points,
-            )
-        
+            gt_boxes, points = getattr(
+                augmentor_utils, f'random_flip_along_{cur_axis}'
+            )(gt_boxes, points)
+
+
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
         return data_dict
@@ -89,10 +91,11 @@ class DataAugmentor(object):
         calib = data_dict["calib"]
         for cur_axis in config['ALONG_AXIS_LIST']:
             assert cur_axis in ['horizontal']
-            images, depth_maps, gt_boxes = getattr(augmentor_utils, 'random_image_flip_%s' % cur_axis)(
-                images, depth_maps, gt_boxes, calib,
-            )
-        
+            images, depth_maps, gt_boxes = getattr(
+                augmentor_utils, f'random_image_flip_{cur_axis}'
+            )(images, depth_maps, gt_boxes, calib)
+
+
         data_dict['images'] = images
         data_dict['depth_maps'] = depth_maps
         data_dict['gt_boxes'] = gt_boxes
@@ -107,9 +110,10 @@ class DataAugmentor(object):
         gt_boxes, points = data_dict['gt_boxes'], data_dict['points']
         for cur_axis in config['ALONG_AXIS_LIST']:
             assert cur_axis in ['x', 'y', 'z']
-            gt_boxes, points = getattr(augmentor_utils, 'random_translation_along_%s' % cur_axis)(
-                gt_boxes, points, noise_translate_std,
-            )
+            gt_boxes, points = getattr(
+                augmentor_utils, f'random_translation_along_{cur_axis}'
+            )(gt_boxes, points, noise_translate_std)
+
 
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
@@ -125,10 +129,11 @@ class DataAugmentor(object):
         gt_boxes, points = data_dict['gt_boxes'], data_dict['points']
         for cur_axis in config['ALONG_AXIS_LIST']:
             assert cur_axis in ['x', 'y', 'z']
-            gt_boxes, points = getattr(augmentor_utils, 'random_local_translation_along_%s' % cur_axis)(
-                gt_boxes, points, offset_range,
-            )
-        
+            gt_boxes, points = getattr(
+                augmentor_utils, f'random_local_translation_along_{cur_axis}'
+            )(gt_boxes, points, offset_range)
+
+
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
         return data_dict
@@ -170,15 +175,16 @@ class DataAugmentor(object):
         """
         if data_dict is None:
             return partial(self.random_world_frustum_dropout, config=config)
-        
+
         intensity_range = config['INTENSITY_RANGE']
         gt_boxes, points = data_dict['gt_boxes'], data_dict['points']
         for direction in config['DIRECTION']:
             assert direction in ['top', 'bottom', 'left', 'right']
-            gt_boxes, points = getattr(augmentor_utils, 'global_frustum_dropout_%s' % direction)(
-                gt_boxes, points, intensity_range,
-            )
-        
+            gt_boxes, points = getattr(
+                augmentor_utils, f'global_frustum_dropout_{direction}'
+            )(gt_boxes, points, intensity_range)
+
+
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
         return data_dict
@@ -189,15 +195,16 @@ class DataAugmentor(object):
         """
         if data_dict is None:
             return partial(self.random_local_frustum_dropout, config=config)
-        
+
         intensity_range = config['INTENSITY_RANGE']
         gt_boxes, points = data_dict['gt_boxes'], data_dict['points']
         for direction in config['DIRECTION']:
             assert direction in ['top', 'bottom', 'left', 'right']
-            gt_boxes, points = getattr(augmentor_utils, 'local_frustum_dropout_%s' % direction)(
-                gt_boxes, points, intensity_range,
-            )
-        
+            gt_boxes, points = getattr(
+                augmentor_utils, f'local_frustum_dropout_{direction}'
+            )(gt_boxes, points, intensity_range)
+
+
         data_dict['gt_boxes'] = gt_boxes
         data_dict['points'] = points
         return data_dict

@@ -83,7 +83,7 @@ def translate_boxes_to_open3d_instance(gt_boxes):
           |/         |/
           2 -------- 0
     """
-    center = gt_boxes[0:3]
+    center = gt_boxes[:3]
     lwh = gt_boxes[3:6]
     axis_angles = np.array([0, 0, gt_boxes[6] + 1e-10])
     rot = open3d.geometry.get_rotation_matrix_from_axis_angle(axis_angles)

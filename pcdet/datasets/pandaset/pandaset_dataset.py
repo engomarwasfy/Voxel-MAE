@@ -21,32 +21,25 @@ def pose_dict_to_numpy(pose):
     """
         Conert pandaset pose dict to a numpy vector in order to pass it through the network
     """
-    pose_np = [pose["position"]["x"],
-               pose["position"]["y"],
-               pose["position"]["z"],
-               pose["heading"]["w"],
-               pose["heading"]["x"],
-               pose["heading"]["y"],
-               pose["heading"]["z"]]
-
-    return pose_np
+    return [
+        pose["position"]["x"],
+        pose["position"]["y"],
+        pose["position"]["z"],
+        pose["heading"]["w"],
+        pose["heading"]["x"],
+        pose["heading"]["y"],
+        pose["heading"]["z"],
+    ]
 
 
 def pose_numpy_to_dict(pose):
     """
         Conert pandaset pose dict to a numpy vector in order to pass it through the network
     """
-    pose_dict = {'position':
-                    {'x': pose[0],
-                     'y': pose[1],
-                     'z': pose[2]},
-                 'heading':
-                    {'w': pose[3],
-                     'x': pose[4],
-                     'y': pose[5],
-                     'z': pose[6]}}
-
-    return pose_dict
+    return {
+        'position': {'x': pose[0], 'y': pose[1], 'z': pose[2]},
+        'heading': {'w': pose[3], 'x': pose[4], 'y': pose[5], 'z': pose[6]},
+    }
 
 
 class PandasetDataset(DatasetTemplate):
@@ -86,7 +79,9 @@ class PandasetDataset(DatasetTemplate):
         self.pandaset_infos.extend(pandaset_infos)
 
         if self.logger is not None:
-            self.logger.info('Total samples for PandaSet dataset ({}): {}'.format(self.mode, len(pandaset_infos)))
+            self.logger.info(
+                f'Total samples for PandaSet dataset ({self.mode}): {len(pandaset_infos)}'
+            )
 
 
     def set_split(self, split):
@@ -126,14 +121,7 @@ class PandasetDataset(DatasetTemplate):
                       'zrot_world_to_ego': zrot_world_to_ego,
                       'pose': pose_dict_to_numpy(pose)
                      }
-        # seq_idx is converted to int because strings can't be passed to
-        # the gpu in pytorch
-        # zrot_world_to_ego is propagated in order to be able to transform the
-        # predicted yaws back to world coordinates
-
-        data_dict = self.prepare_data(data_dict=input_dict)
-
-        return data_dict
+        return self.prepare_data(data_dict=input_dict)
 
 
     def _get_pose(self, info):
@@ -142,9 +130,7 @@ class PandasetDataset(DatasetTemplate):
         if self.dataset[seq_idx].lidar.poses is None:
             self.dataset[seq_idx].lidar._load_poses()
 
-        pose = self.dataset[seq_idx].lidar.poses[info['frame_idx']]
-
-        return pose
+        return self.dataset[seq_idx].lidar.poses[info['frame_idx']]
 
 
     def _get_lidar_points(self, info, pose):
@@ -222,10 +208,12 @@ class PandasetDataset(DatasetTemplate):
         yaxis_points_from_pose = ps.geometry.lidar_points_to_ego(np.array([[0, 0, 0], [0, 1., 0]]), pose)
         yaxis_from_pose = yaxis_points_from_pose[1, :] - yaxis_points_from_pose[0, :]
 
-        if yaxis_from_pose[-1] >= 10**-1:
-            if self.logger is not None:
-                self.logger.warning("The car's pitch is supposed to be negligible " +
-                                    "sin(pitch) is >= 10**-1 ({})".format(yaxis_from_pose[-1]))
+        if yaxis_from_pose[-1] >= 10**-1 and self.logger is not None:
+            self.logger.warning(
+                "The car's pitch is supposed to be negligible "
+                + f"sin(pitch) is >= 10**-1 ({yaxis_from_pose[-1]})"
+            )
+
 
         # rotation angle in rads of the y axis around thz z axis
         zrot_world_to_ego = np.arctan2(-yaxis_from_pose[0], yaxis_from_pose[1])
@@ -369,8 +357,10 @@ class PandasetDataset(DatasetTemplate):
             s = self.dataset[seq]
             s.load_lidar()
             if len(s.lidar.data) > 100:
-                raise ValueError("The implementation for this dataset assumes that each sequence is " +
-                                 "no longer than 100 frames. The current sequence has {}".format(len(s.lidar.data)))
+                raise ValueError(
+                    f"The implementation for this dataset assumes that each sequence is no longer than 100 frames. The current sequence has {len(s.lidar.data)}"
+                )
+
             info = [{'sequence': seq,
                      'frame_idx': ii,
                      'lidar_path': os.path.join(self.root_path, 'dataset', seq, 'lidar', ("{:02d}.pkl.gz".format(ii))),
@@ -384,10 +374,15 @@ class PandasetDataset(DatasetTemplate):
 
 
     def create_groundtruth_database(self, info_path=None, used_classes=None, split='train'):
-        database_save_path = os.path.join(self.root_path,
-                'gt_database' if split == 'train' else 'gt_database_{}'.format(split))
-        db_info_save_path = os.path.join(self.root_path,
-                'pandaset_dbinfos_{}.pkl'.format(split))
+        database_save_path = os.path.join(
+            self.root_path,
+            'gt_database' if split == 'train' else f'gt_database_{split}',
+        )
+
+        db_info_save_path = os.path.join(
+            self.root_path, f'pandaset_dbinfos_{split}.pkl'
+        )
+
 
         os.makedirs(database_save_path, exist_ok=True)
         all_db_infos = {}
@@ -451,13 +446,13 @@ def create_pandaset_infos(dataset_cfg, class_names, data_path, save_path):
     """
     dataset = PandasetDataset(dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path, training=False)
     for split in ["train", "val", "test"]:
-        print("---------------- Start to generate {} data infos ---------------".format(split))
+        print(f"---------------- Start to generate {split} data infos ---------------")
         dataset.set_split(split)
         infos = dataset.get_infos()
-        file_path = os.path.join(save_path, 'pandaset_infos_{}.pkl'.format(split))
+        file_path = os.path.join(save_path, f'pandaset_infos_{split}.pkl')
         with open(file_path, 'wb') as f:
             pickle.dump(infos, f)
-        print("Pandaset info {} file is saved to {}".format(split, file_path))
+        print(f"Pandaset info {split} file is saved to {file_path}")
 
     print('------------Start create groundtruth database for data augmentation-----------')
     dataset = PandasetDataset(dataset_cfg=dataset_cfg, class_names=class_names, root_path=data_path, training=False)

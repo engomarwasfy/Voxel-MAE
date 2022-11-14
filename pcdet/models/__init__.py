@@ -14,17 +14,18 @@ except:
 
 
 def build_network(model_cfg, num_class, dataset):
-    model = build_detector(
+    return build_detector(
         model_cfg=model_cfg, num_class=num_class, dataset=dataset
     )
-    return model
 
 
 def load_data_to_gpu(batch_dict):
     for key, val in batch_dict.items():
-        if not isinstance(val, np.ndarray):
-            continue
-        elif key in ['frame_id', 'metadata', 'calib']:
+        if not isinstance(val, np.ndarray) or key in [
+            'frame_id',
+            'metadata',
+            'calib',
+        ]:
             continue
         elif key in ['images']:
             batch_dict[key] = kornia.image_to_tensor(val).float().cuda().contiguous()

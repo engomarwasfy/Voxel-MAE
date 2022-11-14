@@ -97,14 +97,13 @@ class LyftDataset(DatasetTemplate):
         }
 
         if 'gt_boxes' in info:
-            input_dict.update({
+            input_dict |= {
                 'gt_boxes': info['gt_boxes'],
-                'gt_names': info['gt_names']
-            })
+                'gt_names': info['gt_names'],
+            }
 
-        data_dict = self.prepare_data(data_dict=input_dict)
 
-        return data_dict
+        return self.prepare_data(data_dict=input_dict)
 
     def generate_prediction_dicts(self, batch_dict, pred_dicts, class_names, output_path=None):
         """
@@ -206,7 +205,7 @@ class LyftDataset(DatasetTemplate):
     def create_groundtruth_database(self, used_classes=None, max_sweeps=10):
         import torch
 
-        database_save_path = self.root_path / f'gt_database'
+        database_save_path = self.root_path / 'gt_database'
         db_info_save_path = self.root_path / f'lyft_dbinfos_{max_sweeps}sweeps.pkl'
 
         database_save_path.mkdir(parents=True, exist_ok=True)
@@ -263,15 +262,15 @@ def create_lyft_info(version, data_path, save_path, split, max_sweeps=10):
 
     assert version in ['trainval', 'one_scene', 'test']
 
-    if version == 'trainval':
-        train_split_path = split_path / 'train.txt'
-        val_split_path = split_path / 'val.txt'
+    if version == 'one_scene':
+        train_split_path = split_path / 'one_scene.txt'
+        val_split_path = split_path / 'one_scene.txt'
     elif version == 'test':
         train_split_path = split_path / 'test.txt'
         val_split_path = None
-    elif version == 'one_scene':
-        train_split_path = split_path / 'one_scene.txt'
-        val_split_path = split_path / 'one_scene.txt'
+    elif version == 'trainval':
+        train_split_path = split_path / 'train.txt'
+        val_split_path = split_path / 'val.txt'
     else:
         raise NotImplementedError
 
@@ -284,8 +283,16 @@ def create_lyft_info(version, data_path, save_path, split, max_sweeps=10):
     available_scene_names = [s['name'] for s in available_scenes]
     train_scenes = list(filter(lambda x: x in available_scene_names, train_scenes))
     val_scenes = list(filter(lambda x: x in available_scene_names, val_scenes))
-    train_scenes = set([available_scenes[available_scene_names.index(s)]['token'] for s in train_scenes])
-    val_scenes = set([available_scenes[available_scene_names.index(s)]['token'] for s in val_scenes])
+    train_scenes = {
+        available_scenes[available_scene_names.index(s)]['token']
+        for s in train_scenes
+    }
+
+    val_scenes = {
+        available_scenes[available_scene_names.index(s)]['token']
+        for s in val_scenes
+    }
+
 
     print('%s: train scene(%d), val scene(%d)' % (version, len(train_scenes), len(val_scenes)))
 
@@ -296,13 +303,13 @@ def create_lyft_info(version, data_path, save_path, split, max_sweeps=10):
 
     if version == 'test':
         print('test sample: %d' % len(train_lyft_infos))
-        with open(save_path / f'lyft_infos_test.pkl', 'wb') as f:
+        with open(save_path / 'lyft_infos_test.pkl', 'wb') as f:
             pickle.dump(train_lyft_infos, f)
     else:
         print('train sample: %d, val sample: %d' % (len(train_lyft_infos), len(val_lyft_infos)))
-        with open(save_path / f'lyft_infos_train.pkl', 'wb') as f:
+        with open(save_path / 'lyft_infos_train.pkl', 'wb') as f:
             pickle.dump(train_lyft_infos, f)
-        with open(save_path / f'lyft_infos_val.pkl', 'wb') as f:
+        with open(save_path / 'lyft_infos_val.pkl', 'wb') as f:
             pickle.dump(val_lyft_infos, f)
 
 

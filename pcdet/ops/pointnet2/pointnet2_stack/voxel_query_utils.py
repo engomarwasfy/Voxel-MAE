@@ -11,7 +11,7 @@ class VoxelQuery(Function):
 
     @staticmethod
     def forward(ctx, max_range: int, radius: float, nsample: int, xyz: torch.Tensor, \
-                    new_xyz: torch.Tensor, new_coords: torch.Tensor, point_indices: torch.Tensor):
+                        new_xyz: torch.Tensor, new_coords: torch.Tensor, point_indices: torch.Tensor):
         """
         Args:
             ctx:
@@ -34,7 +34,7 @@ class VoxelQuery(Function):
 
         z_range, y_range, x_range = max_range
         pointnet2.voxel_query_wrapper(M, Z, Y, X, nsample, radius, z_range, y_range, x_range, \
-                    new_xyz, xyz, new_coords, point_indices, idx)
+                        new_xyz, xyz, new_coords, point_indices, idx)
 
         empty_ball_mask = (idx[:, 0] == -1)
         idx[empty_ball_mask] = 0
@@ -74,11 +74,16 @@ class VoxelQueryAndGrouping(nn.Module):
         Returns:
             new_features: (M1 + M2, C, nsample) tensor
         """
-        assert xyz.shape[0] == xyz_batch_cnt.sum(), 'xyz: %s, xyz_batch_cnt: %s' % (str(xyz.shape), str(new_xyz_batch_cnt))
-        assert new_coords.shape[0] == new_xyz_batch_cnt.sum(), \
-            'new_coords: %s, new_xyz_batch_cnt: %s' % (str(new_coords.shape), str(new_xyz_batch_cnt))
+        assert (
+            xyz.shape[0] == xyz_batch_cnt.sum()
+        ), f'xyz: {str(xyz.shape)}, xyz_batch_cnt: {str(new_xyz_batch_cnt)}'
+
+        assert (
+            new_coords.shape[0] == new_xyz_batch_cnt.sum()
+        ), f'new_coords: {str(new_coords.shape)}, new_xyz_batch_cnt: {str(new_xyz_batch_cnt)}'
+
         batch_size = xyz_batch_cnt.shape[0]
-        
+
         # idx: (M1 + M2 ..., nsample), empty_ball_mask: (M1 + M2 ...)
         idx1, empty_ball_mask1 = voxel_query(self.max_range, self.radius, self.nsample, xyz, new_xyz, new_coords, voxel2point_indices)
 
@@ -92,9 +97,9 @@ class VoxelQueryAndGrouping(nn.Module):
 
         idx = idx1
         empty_ball_mask = empty_ball_mask1
-        
+
         grouped_xyz = pointnet2_utils.grouping_operation(xyz, xyz_batch_cnt, idx, new_xyz_batch_cnt)
         # grouped_features: (M1 + M2, C, nsample)
         grouped_features = pointnet2_utils.grouping_operation(features, xyz_batch_cnt, idx, new_xyz_batch_cnt)  
-        
+
         return grouped_features, grouped_xyz, empty_ball_mask

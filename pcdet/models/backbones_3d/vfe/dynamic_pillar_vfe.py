@@ -39,11 +39,7 @@ class PFNLayerV2(nn.Module):
         x = self.relu(x)
         x_max = torch_scatter.scatter_max(x, unq_inv, dim=0)[0]
 
-        if self.last_vfe:
-            return x_max
-        else:
-            x_concatenated = torch.cat([x, x_max[unq_inv, :]], dim=1)
-            return x_concatenated
+        return x_max if self.last_vfe else torch.cat([x, x_max[unq_inv, :]], dim=1)
 
 
 class DynamicPillarVFE(VFETemplate):
@@ -79,7 +75,7 @@ class DynamicPillarVFE(VFETemplate):
 
         self.scale_xy = grid_size[0] * grid_size[1]
         self.scale_y = grid_size[1]
-        
+
         self.grid_size = torch.tensor(grid_size).cuda()
         self.voxel_size = torch.tensor(voxel_size).cuda()
         self.point_cloud_range = torch.tensor(point_cloud_range).cuda()
@@ -97,9 +93,9 @@ class DynamicPillarVFE(VFETemplate):
         points_xyz = points[:, [1, 2, 3]].contiguous()
 
         merge_coords = points[:, 0].int() * self.scale_xy + \
-                       points_coords[:, 0] * self.scale_y + \
-                       points_coords[:, 1]
-        
+                           points_coords[:, 0] * self.scale_y + \
+                           points_coords[:, 1]
+
         unq_coords, unq_inv, unq_cnt = torch.unique(merge_coords, return_inverse=True, return_counts=True, dim=0)
 
         points_mean = torch_scatter.scatter_mean(points_xyz, unq_inv, dim=0)
@@ -114,12 +110,12 @@ class DynamicPillarVFE(VFETemplate):
             features = [points[:, 1:], f_cluster, f_center]
         else:
             features = [points[:, 4:], f_cluster, f_center]
-        
+
         if self.with_distance:
             points_dist = torch.norm(points[:, 1:4], 2, dim=1, keepdim=True)
             features.append(points_dist)
         features = torch.cat(features, dim=-1)
-        
+
         for pfn in self.pfn_layers:
             features = pfn(features, unq_inv)
         # features = self.linear1(features)
@@ -127,7 +123,7 @@ class DynamicPillarVFE(VFETemplate):
         # features = torch.cat([features, features_max[unq_inv, :]], dim=1)
         # features = self.linear2(features)
         # features = torch_scatter.scatter_max(features, unq_inv, dim=0)[0]
-        
+
         # generate voxel coordinates
         unq_coords = unq_coords.int()
         voxel_coords = torch.stack((unq_coords // self.scale_xy,

@@ -62,9 +62,10 @@ def main():
         dist_train = False
         total_gpus = 1
     else:
-        total_gpus, cfg.LOCAL_RANK = getattr(common_utils, 'init_dist_%s' % args.launcher)(
-            args.tcp_port, args.local_rank, backend='nccl'
-        )
+        total_gpus, cfg.LOCAL_RANK = getattr(
+            common_utils, f'init_dist_{args.launcher}'
+        )(args.tcp_port, args.local_rank, backend='nccl')
+
         dist_train = True
 
     if args.batch_size is None:
@@ -83,13 +84,17 @@ def main():
     output_dir.mkdir(parents=True, exist_ok=True)
     ckpt_dir.mkdir(parents=True, exist_ok=True)
 
-    log_file = output_dir / ('log_train_%s.txt' % datetime.datetime.now().strftime('%Y%m%d-%H%M%S'))
+    log_file = (
+        output_dir
+        / f"log_train_{datetime.datetime.now().strftime('%Y%m%d-%H%M%S')}.txt"
+    )
+
     logger = common_utils.create_logger(log_file, rank=cfg.LOCAL_RANK)
 
     # log to file
     logger.info('**********************Start logging**********************')
     gpu_list = os.environ['CUDA_VISIBLE_DEVICES'] if 'CUDA_VISIBLE_DEVICES' in os.environ.keys() else 'ALL'
-    logger.info('CUDA_VISIBLE_DEVICES=%s' % gpu_list)
+    logger.info(f'CUDA_VISIBLE_DEVICES={gpu_list}')
 
     if dist_train:
         logger.info('total_batch_size: %d' % (total_gpus * args.batch_size))
@@ -97,7 +102,7 @@ def main():
         logger.info('{:16} {}'.format(key, val))
     log_config_to_file(cfg, logger=logger)
     if cfg.LOCAL_RANK == 0:
-        os.system('cp %s %s' % (args.cfg_file, output_dir))
+        os.system(f'cp {args.cfg_file} {output_dir}')
 
     tb_log = SummaryWriter(log_dir=str(output_dir / 'tensorboard')) if cfg.LOCAL_RANK == 0 else None
 
@@ -150,8 +155,10 @@ def main():
     )
 
     # -----------------------start training---------------------------
-    logger.info('**********************Start training %s/%s(%s)**********************'
-                % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
+    logger.info(
+        f'**********************Start training {cfg.EXP_GROUP_PATH}/{cfg.TAG}({args.extra_tag})**********************'
+    )
+
     train_model(
         model,
         optimizer,
@@ -178,8 +185,10 @@ def main():
     logger.info('**********************End training %s/%s(%s)**********************\n\n\n'
                 % (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
 
-    logger.info('**********************Start evaluation %s/%s(%s)**********************' %
-                (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
+    logger.info(
+        f'**********************Start evaluation {cfg.EXP_GROUP_PATH}/{cfg.TAG}({args.extra_tag})**********************'
+    )
+
     test_set, test_loader, sampler = build_dataloader(
         dataset_cfg=cfg.DATA_CONFIG,
         class_names=cfg.CLASS_NAMES,
@@ -195,8 +204,9 @@ def main():
         test_loader, args, eval_output_dir, logger, ckpt_dir,
         dist_test=dist_train
     )
-    logger.info('**********************End evaluation %s/%s(%s)**********************' %
-                (cfg.EXP_GROUP_PATH, cfg.TAG, args.extra_tag))
+    logger.info(
+        f'**********************End evaluation {cfg.EXP_GROUP_PATH}/{cfg.TAG}({args.extra_tag})**********************'
+    )
 
 
 if __name__ == '__main__':

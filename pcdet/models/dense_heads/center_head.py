@@ -17,13 +17,22 @@ class SeparateHead(nn.Module):
             output_channels = self.sep_head_dict[cur_name]['out_channels']
             num_conv = self.sep_head_dict[cur_name]['num_conv']
 
-            fc_list = []
-            for k in range(num_conv - 1):
-                fc_list.append(nn.Sequential(
-                    nn.Conv2d(input_channels, input_channels, kernel_size=3, stride=1, padding=1, bias=use_bias),
+            fc_list = [
+                nn.Sequential(
+                    nn.Conv2d(
+                        input_channels,
+                        input_channels,
+                        kernel_size=3,
+                        stride=1,
+                        padding=1,
+                        bias=use_bias,
+                    ),
                     nn.BatchNorm2d(input_channels),
-                    nn.ReLU()
-                ))
+                    nn.ReLU(),
+                )
+                for _ in range(num_conv - 1)
+            ]
+
             fc_list.append(nn.Conv2d(input_channels, output_channels, kernel_size=3, stride=1, padding=1, bias=True))
             fc = nn.Sequential(*fc_list)
             if 'hm' in cur_name:
@@ -38,11 +47,10 @@ class SeparateHead(nn.Module):
             self.__setattr__(cur_name, fc)
 
     def forward(self, x):
-        ret_dict = {}
-        for cur_name in self.sep_head_dict:
-            ret_dict[cur_name] = self.__getattr__(cur_name)(x)
-
-        return ret_dict
+        return {
+            cur_name: self.__getattr__(cur_name)(x)
+            for cur_name in self.sep_head_dict
+        }
 
 
 class CenterHead(nn.Module):
@@ -67,7 +75,7 @@ class CenterHead(nn.Module):
             )).cuda()
             self.class_id_mapping_each_head.append(cur_class_id_mapping)
 
-        total_classes = sum([len(x) for x in self.class_names_each_head])
+        total_classes = sum(len(x) for x in self.class_names_each_head)
         assert total_classes == len(self.class_names), f'class_names_each_head={self.class_names_each_head}'
 
         self.shared_conv = nn.Sequential(
@@ -81,7 +89,7 @@ class CenterHead(nn.Module):
 
         self.heads_list = nn.ModuleList()
         self.separate_head_cfg = self.model_cfg.SEPARATE_HEAD_CFG
-        for idx, cur_class_names in enumerate(self.class_names_each_head):
+        for cur_class_names in self.class_names_each_head:
             cur_head_dict = copy.deepcopy(self.separate_head_cfg.HEAD_DICT)
             cur_head_dict['hm'] = dict(out_channels=len(cur_class_names), num_conv=self.model_cfg.NUM_HM_CONV)
             self.heads_list.append(
@@ -195,10 +203,11 @@ class CenterHead(nn.Module):
                     temp_box[-1] = cur_class_names.index(name) + 1
                     gt_boxes_single_head.append(temp_box[None, :])
 
-                if len(gt_boxes_single_head) == 0:
-                    gt_boxes_single_head = cur_gt_boxes[:0, :]
-                else:
-                    gt_boxes_single_head = torch.cat(gt_boxes_single_head, dim=0)
+                gt_boxes_single_head = (
+                    torch.cat(gt_boxes_single_head, dim=0)
+                    if gt_boxes_single_head
+                    else cur_gt_boxes[:0, :]
+                )
 
                 heatmap, ret_boxes, inds, mask = self.assign_target_of_single_head(
                     num_classes=len(cur_class_names), gt_boxes=gt_boxes_single_head.cpu(),
@@ -219,8 +228,7 @@ class CenterHead(nn.Module):
         return ret_dict
 
     def sigmoid(self, x):
-        y = torch.clamp(x.sigmoid(), min=1e-4, max=1 - 1e-4)
-        return y
+        return torch.clamp(x.sigmoid(), min=1e-4, max=1 - 1e-4)
 
     def get_loss(self):
         pred_dicts = self.forward_ret_dict['pred_dicts']
@@ -254,11 +262,15 @@ class CenterHead(nn.Module):
         post_process_cfg = self.model_cfg.POST_PROCESSING
         post_center_limit_range = torch.tensor(post_process_cfg.POST_CENTER_LIMIT_RANGE).cuda().float()
 
-        ret_dict = [{
-            'pred_boxes': [],
-            'pred_scores': [],
-            'pred_labels': [],
-        } for k in range(batch_size)]
+        ret_dict = [
+            {
+                'pred_boxes': [],
+                'pred_scores': [],
+                'pred_labels': [],
+            }
+            for _ in range(batch_size)
+        ]
+
         for idx, pred_dict in enumerate(pred_dicts):
             batch_hm = pred_dict['hm'].sigmoid()
             batch_center = pred_dict['center']
@@ -305,7 +317,7 @@ class CenterHead(nn.Module):
 
     @staticmethod
     def reorder_rois_for_refining(batch_size, pred_dicts):
-        num_max_rois = max([len(cur_dict['pred_boxes']) for cur_dict in pred_dicts])
+        num_max_rois = max(len(cur_dict['pred_boxes']) for cur_dict in pred_dicts)
         num_max_rois = max(1, num_max_rois)  # at least one faked rois to avoid error
         pred_boxes = pred_dicts[0]['pred_boxes']
 
@@ -325,10 +337,7 @@ class CenterHead(nn.Module):
         spatial_features_2d = data_dict['spatial_features_2d']
         x = self.shared_conv(spatial_features_2d)
 
-        pred_dicts = []
-        for head in self.heads_list:
-            pred_dicts.append(head(x))
-
+        pred_dicts = [head(x) for head in self.heads_list]
         if self.training:
             target_dict = self.assign_targets(
                 data_dict['gt_boxes'], feature_map_size=spatial_features_2d.size()[2:],

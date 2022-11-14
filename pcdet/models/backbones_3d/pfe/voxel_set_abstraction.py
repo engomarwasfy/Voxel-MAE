@@ -38,8 +38,12 @@ def bilinear_interpolate_torch(im, x, y):
     wb = (x1.type_as(x) - x) * (y - y0.type_as(y))
     wc = (x - x0.type_as(x)) * (y1.type_as(y) - y)
     wd = (x - x0.type_as(x)) * (y - y0.type_as(y))
-    ans = torch.t((torch.t(Ia) * wa)) + torch.t(torch.t(Ib) * wb) + torch.t(torch.t(Ic) * wc) + torch.t(torch.t(Id) * wd)
-    return ans
+    return (
+        torch.t((torch.t(Ia) * wa))
+        + torch.t(torch.t(Ib) * wb)
+        + torch.t(torch.t(Ic) * wc)
+        + torch.t(torch.t(Id) * wd)
+    )
 
 
 def sample_points_with_roi(rois, points, sample_radius_with_roi, num_max_points_of_part=200000):
@@ -102,7 +106,7 @@ def sector_fps(points, num_sampled_points, num_sectors):
                 min(cur_num_points, math.ceil(ratio * num_sampled_points))
             )
 
-    if len(xyz_batch_cnt) == 0:
+    if not xyz_batch_cnt:
         xyz_points_list.append(points)
         xyz_batch_cnt.append(len(points))
         num_sampled_points_list.append(num_sampled_points)
@@ -116,9 +120,7 @@ def sector_fps(points, num_sampled_points, num_sectors):
         xyz.contiguous(), xyz_batch_cnt, sampled_points_batch_cnt
     ).long()
 
-    sampled_points = xyz[sampled_pt_idxs]
-
-    return sampled_points
+    return xyz[sampled_pt_idxs]
 
 
 class VoxelSetAbstraction(nn.Module):
@@ -142,7 +144,7 @@ class VoxelSetAbstraction(nn.Module):
 
             if SA_cfg[src_name].get('INPUT_CHANNELS', None) is None:
                 input_channels = SA_cfg[src_name].MLPS[0][0] \
-                    if isinstance(SA_cfg[src_name].MLPS[0], list) else SA_cfg[src_name].MLPS[0]
+                        if isinstance(SA_cfg[src_name].MLPS[0], list) else SA_cfg[src_name].MLPS[0]
             else:
                 input_channels = SA_cfg[src_name]['INPUT_CHANNELS']
 

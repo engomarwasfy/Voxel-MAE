@@ -157,27 +157,24 @@ cls_attr_dist = {
 def get_available_scenes(nusc):
     available_scenes = []
     print('total scene num:', len(nusc.scene))
+    has_more_frames = True
     for scene in nusc.scene:
         scene_token = scene['token']
         scene_rec = nusc.get('scene', scene_token)
         sample_rec = nusc.get('sample', scene_rec['first_sample_token'])
         sd_rec = nusc.get('sample_data', sample_rec['data']['LIDAR_TOP'])
-        has_more_frames = True
         scene_not_exist = False
         while has_more_frames:
             lidar_path, boxes, _ = nusc.get_sample_data(sd_rec['token'])
             if not Path(lidar_path).exists():
                 scene_not_exist = True
-                break
-            else:
-                break
-            # if not sd_rec['next'] == '':
-            #     sd_rec = nusc.get('sample_data', sd_rec['next'])
-            # else:
-            #     has_more_frames = False
-        if scene_not_exist:
-            continue
-        available_scenes.append(scene)
+            break
+                    # if not sd_rec['next'] == '':
+                    #     sd_rec = nusc.get('sample_data', sd_rec['next'])
+                    # else:
+                    #     has_more_frames = False
+        if not scene_not_exist:
+            available_scenes.append(scene)
     print('exist scene num:', len(available_scenes))
     return available_scenes
 
@@ -243,10 +240,7 @@ def quaternion_yaw(q: Quaternion) -> float:
     # Project into xy plane.
     v = np.dot(q.rotation_matrix, np.array([1, 0, 0]))
 
-    # Measure yaw using arctan.
-    yaw = np.arctan2(v[1], v[0])
-
-    return yaw
+    return np.arctan2(v[1], v[0])
 
 
 def fill_trainval_infos(data_path, nusc, train_scenes, val_scenes, test=False, max_sweeps=10):
@@ -297,7 +291,7 @@ def fill_trainval_infos(data_path, nusc, train_scenes, val_scenes, test=False, m
         sweeps = []
         while len(sweeps) < max_sweeps - 1:
             if curr_sd_rec['prev'] == '':
-                if len(sweeps) == 0:
+                if not sweeps:
                     sweep = {
                         'lidar_path': Path(ref_lidar_path).relative_to(data_path).__str__(),
                         'sample_data_token': curr_sd_rec['token'],
@@ -442,13 +436,12 @@ def transform_det_annos_to_nusc_annos(det_annos, nusc):
                     attr = 'cycle.with_rider'
                 else:
                     attr = None
+            elif name in ['pedestrian']:
+                attr = 'pedestrian.standing'
+            elif name in ['bus']:
+                attr = 'vehicle.stopped'
             else:
-                if name in ['pedestrian']:
-                    attr = 'pedestrian.standing'
-                elif name in ['bus']:
-                    attr = 'vehicle.stopped'
-                else:
-                    attr = None
+                attr = None
             attr = attr if attr is not None else max(
                 cls_attr_dist[name].items(), key=operator.itemgetter(1))[0]
             nusc_anno = {
@@ -492,9 +485,10 @@ def format_nuscene_results(metrics, class_names, version='default'):
     result += 'mAP:\t %.4f\n' % metrics['mean_ap']
     result += 'NDS:\t %.4f\n' % metrics['nd_score']
 
-    details.update({
+    details |= {
         'mAP': metrics['mean_ap'],
         'NDS': metrics['nd_score'],
-    })
+    }
+
 
     return result, details
